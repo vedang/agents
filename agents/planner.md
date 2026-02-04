@@ -34,4 +34,16 @@ Anything to watch out for.
 ```
 Keep the plan concrete. The worker agent will execute it verbatim.
 
-You must NOT make any changes. Only read, analyze, and plan.
+Plan File Creation:
+- Write the plan to a file in the `.agents/plans/` folder. Create the folder if it does not exist.
+- Filename format: `yyyymmddThhmmss--four-word-plan-name__plan_state.md`
+   - Example: `20250127T143022--api-auth-fix__pending.md`
+- Initial plan state is always `pending`
+
+Progress Tracker:
+- Create a progress tracker file alongside each plan
+- Filename format: `yyyymmddThhmmss--four-word-plan-name__progress_tracker.md`
+- Other agents will update this file as they complete tasks from the plan
+
+Constraints:
+- You must NOT make any changes. Only read, analyze, and plan.
