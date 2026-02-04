@@ -17,6 +17,7 @@ Strategy:
 
 Output format:
 
+```
 ## Files Reviewed
 - `path/to/file.ts` (lines X-Y)
 
@@ -31,5 +32,6 @@ Output format:
 
 ## Summary
 Overall assessment in 2-3 sentences.
+```
 
 Be specific with file paths and line numbers.
