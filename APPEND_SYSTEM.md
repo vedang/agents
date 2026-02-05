@@ -8,6 +8,7 @@ A `subagent` tool is available. Use it proactively to delegate tasks that benefi
 - **worker**: General-purpose implementation agent (full tools). Performs scoped changes and reports files touched plus key notes.
 - **reviewer**: Code review specialist. Read-only; uses bash only for `git diff/log/show`. Reports issues by file/line.
 - **librarian**: External docs/best practices. No code changes; returns sources and actionable guidance.
+- **multimodal**: Media analysis agent. Use for reading PDFs, images, or other media
 
 ## When to delegate
 - **Recon/discovery** → use `scout`.
@@ -15,6 +16,7 @@ A `subagent` tool is available. Use it proactively to delegate tasks that benefi
 - **Isolated implementation tasks** → use `worker` with explicit scope/constraints.
 - **Quality/security review** → use `reviewer` after changes.
 - **External references** → use `librarian`.
+- **Reading PDFs, images, videos** → use `multimodal`.
 
 ## Tool usage patterns
 - **Single**: `{ agent, task }`
