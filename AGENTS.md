@@ -116,6 +116,10 @@ Examples:
 2. Filename format: `yyyymmddThhmmss--four-word-plan-name__progress_tracker.md`
 3. Update this file as you complete tasks from the plan
 
+### Lessons
+
+Every time a plan is completed, execute the `~/.config/agents/prompts/learn-stuff.md` prompt. The goal is to track mistakes, corrections, and patterns in `.agents/LESSONS.md` file so that we continuously improve ourselves.
+
 ### Workflow
 
 1. **Plan**: Create plan file with `pending` state and corresponding progress tracker
