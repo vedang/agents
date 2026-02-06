@@ -4,7 +4,7 @@ description: Capture durable lessons in the closest relevant AGENTS.md file(s)
 
 # Learn Stuff
 
-Capture mistakes, corrections, and successful patterns in `AGENTS.md` files (not `LESSONS.md`).
+Capture mistakes, corrections, and successful patterns in `AGENTS.md` files
 
 ## Core rules
 
@@ -12,7 +12,6 @@ Capture mistakes, corrections, and successful patterns in `AGENTS.md` files (not
 2. Update the **closest folder where the lesson applies**.
 3. Keep entries specific, actionable, and high signal.
 4. Prefer local scope over root scope.
-5. Do not create or use `.agents/LESSONS.md`.
 
 ## Choosing where to write
 
@@ -24,7 +23,7 @@ For each lesson, choose target directory by scope:
 
 If multiple domains are involved, split lessons across multiple local `AGENTS.md` files instead of centralizing everything at root.
 
-Note: pi loads `AGENTS.md` from the session cwd and its ancestor directories. If you create a deep local `AGENTS.md`, it will apply when sessions run from that subtree.
+(Note for pi-coding-agent: pi loads `AGENTS.md` from the session cwd and its ancestor directories. If you create a deep local `AGENTS.md`, it will apply only when sessions run from that subtree.)
 
 ## File behavior
 
