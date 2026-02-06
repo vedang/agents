@@ -1,19 +1,17 @@
 /**
- * Learn-Stuff Hook Extension
+ * Learn-Stuff Extension
  *
- * Triggers the /learn-stuff prompt on key workflow events so lessons are
- * updated continuously in prompt-based mode.
- *
- * Events covered:
- * - agent_end (session-end analogue)
- * - session_fork
- * - explicit cross-extension requests via pi.events (used by /handoff)
+ * Provides the /learn-stuff prompt template from this extension folder and
+ * triggers it on key workflow events.
  */
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 const LEARN_STUFF_EVENT = "learn-stuff:trigger";
+const baseDir = dirname(fileURLToPath(import.meta.url));
 
 type LearnStuffTriggerPayload = {
 	reason?: string;
@@ -30,11 +28,17 @@ function getReason(payload: unknown): string {
 	return maybe.reason.trim() || "external";
 }
 
-export default function learnStuffHookExtension(pi: ExtensionAPI): void {
+export default function learnStuffExtension(pi: ExtensionAPI): void {
 	let lastInputText: string | undefined;
 	let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
 	let currentCtx: ExtensionContext | undefined;
 	let warnedMissingPrompt = false;
+
+	pi.on("resources_discover", () => {
+		return {
+			promptPaths: [join(baseDir, "prompt.md")],
+		};
+	});
 
 	function rememberContext(ctx: ExtensionContext): void {
 		currentCtx = ctx;

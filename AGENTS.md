@@ -118,7 +118,7 @@ Examples:
 
 ### Lessons
 
-Every time a plan is completed, execute the `~/.config/agents/prompts/learn-stuff.md` prompt. The goal is to track mistakes, corrections, and patterns in `.agents/LESSONS.md` file so that we continuously improve ourselves.
+Every time a plan is completed, execute the `/learn-stuff` prompt (defined at `~/.config/agents/pi-extensions/learn-stuff/prompt.md`). Capture mistakes, corrections, and patterns in the closest relevant `AGENTS.md` file(s), not in a central lessons file.
 
 ### Workflow
 
