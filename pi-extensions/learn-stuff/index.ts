@@ -5,18 +5,36 @@
  * learn-stuff on key workflow events.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 const LEARN_STUFF_EVENT = "learn-stuff:trigger";
+const LESSONS_MAX_CHARS = 8_000;
+const LESSONS_MESSAGE_TYPE = "learn-stuff-lessons";
+const SKIPPED_DIRECTORIES = new Set([
+	".git",
+	".jj",
+	"node_modules",
+	".next",
+	".nuxt",
+	"dist",
+	"build",
+	"target",
+	"coverage",
+]);
 const baseDir = dirname(fileURLToPath(import.meta.url));
 const PROMPT_FILE = join(baseDir, "prompt.md");
 
 type LearnStuffTriggerPayload = {
 	reason?: string;
+};
+
+type LessonsByFile = {
+	path: string;
+	sections: string[];
 };
 
 function isLearnStuffInput(text: string | undefined): boolean {
@@ -39,6 +57,162 @@ function loadPromptBody(): string | null {
 	return normalized.length > 0 ? normalized : null;
 }
 
+function findProjectRoot(startDir: string): string {
+	let current = resolve(startDir);
+	while (true) {
+		if (existsSync(join(current, ".git")) || existsSync(join(current, ".jj"))) {
+			return current;
+		}
+		const parent = resolve(current, "..");
+		if (parent === current) return resolve(startDir);
+		current = parent;
+	}
+}
+
+function shouldSkipDirectory(name: string): boolean {
+	return SKIPPED_DIRECTORIES.has(name);
+}
+
+function collectProjectAgentsFiles(projectRoot: string): string[] {
+	const files: string[] = [];
+	const stack = [projectRoot];
+
+	while (stack.length > 0) {
+		const current = stack.pop();
+		if (!current) continue;
+
+		let entries: import("node:fs").Dirent[];
+		try {
+			entries = readdirSync(current, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+
+		for (const entry of entries) {
+			if (entry.isSymbolicLink()) continue;
+			const fullPath = join(current, entry.name);
+			if (entry.isDirectory()) {
+				if (shouldSkipDirectory(entry.name)) continue;
+				stack.push(fullPath);
+				continue;
+			}
+			if (entry.isFile() && entry.name === "AGENTS.md") {
+				files.push(fullPath);
+			}
+		}
+	}
+
+	return files.sort((a, b) => a.localeCompare(b));
+}
+
+function isLessonsHeading(line: string): { level: number; isLessons: boolean } {
+	const match = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+	if (!match) return { level: 0, isLessons: false };
+
+	const level = match[1].length;
+	const headingText = match[2]
+		.trim()
+		.toLowerCase()
+		.replace(/[\`*_]/g, "")
+		.replace(/\s*:+\s*$/, "")
+		.trim();
+	return { level, isLessons: headingText.startsWith("lessons") };
+}
+
+function extractLessonsSections(content: string): string[] {
+	const lines = content.split(/\r?\n/);
+	const sections: string[] = [];
+
+	let index = 0;
+	while (index < lines.length) {
+		const startHeading = isLessonsHeading(lines[index]);
+		if (!startHeading.isLessons) {
+			index++;
+			continue;
+		}
+
+		const start = index + 1;
+		let end = lines.length;
+		for (let i = start; i < lines.length; i++) {
+			const maybeHeading = lines[i].match(/^(#{1,6})\s+(.+?)\s*$/);
+			if (!maybeHeading) continue;
+			const level = maybeHeading[1].length;
+			if (level <= startHeading.level) {
+				end = i;
+				break;
+			}
+		}
+
+		const body = lines.slice(start, end).join("\n").trim();
+		if (body.length > 0) {
+			sections.push(body);
+		}
+		index = end;
+	}
+
+	return sections;
+}
+
+function buildLessonsDigest(projectRoot: string, filesWithLessons: LessonsByFile[]): string {
+	const sectionCount = filesWithLessons.reduce((sum, file) => sum + file.sections.length, 0);
+	const header = [
+		"Repository lessons digest from AGENTS.md files.",
+		`Project root: ${projectRoot}`,
+		`Files with lessons: ${filesWithLessons.length}`,
+		`Lessons sections: ${sectionCount}`,
+	].join("\n");
+
+	const sections = filesWithLessons.map((file) => {
+		const relPath = relative(projectRoot, file.path) || "AGENTS.md";
+		const merged = file.sections.join("\n\n").trim();
+		return `## ${relPath}\n${merged}`;
+	});
+
+	return `${header}\n\n${sections.join("\n\n")}`.trim();
+}
+
+function applyHardCap(content: string, maxChars: number): {
+	text: string;
+	truncated: boolean;
+	totalChars: number;
+	shownChars: number;
+} {
+	const totalChars = content.length;
+	if (totalChars <= maxChars) {
+		return {
+			text: content,
+			truncated: false,
+			totalChars,
+			shownChars: totalChars,
+		};
+	}
+
+	let shownChars = Math.min(totalChars, maxChars);
+	while (shownChars >= 0) {
+		const omittedChars = totalChars - shownChars;
+		const summary =
+			`[Truncated lessons digest: showing first ${shownChars} of ${totalChars} chars; ` +
+			`omitted ${omittedChars} chars.]`;
+		const candidate = `${summary}\n\n${content.slice(0, shownChars)}`;
+		if (candidate.length <= maxChars) {
+			return {
+				text: candidate,
+				truncated: true,
+				totalChars,
+				shownChars,
+			};
+		}
+		shownChars--;
+	}
+
+	return {
+		text: content.slice(0, maxChars),
+		truncated: true,
+		totalChars,
+		shownChars: maxChars,
+	};
+}
+
 export default function learnStuffExtension(pi: ExtensionAPI): void {
 	let lastInputText: string | undefined;
 	let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
@@ -57,9 +231,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 			}
 
 			const reason = args.trim();
-			const content = reason
-				? `${promptBody}\n\nTrigger context: ${reason}`
-				: promptBody;
+			const content = reason ? `${promptBody}\n\nTrigger context: ${reason}` : promptBody;
 
 			if (ctx.isIdle()) {
 				pi.sendUserMessage(content);
@@ -69,11 +241,78 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 		},
 	});
 
+	pi.registerCommand("learn-stuff:lessons", {
+		description: "Merge Lessons sections from project AGENTS.md and inject into context",
+		handler: async (_args, ctx) => {
+			const projectRoot = findProjectRoot(ctx.cwd);
+			const agentsFiles = collectProjectAgentsFiles(projectRoot);
+			const filesWithLessons: LessonsByFile[] = [];
+
+			for (const filePath of agentsFiles) {
+				try {
+					const content = readFileSync(filePath, "utf-8");
+					const sections = extractLessonsSections(content);
+					if (sections.length > 0) {
+						filesWithLessons.push({ path: filePath, sections });
+					}
+				} catch {
+					continue;
+				}
+			}
+
+			const sectionCount = filesWithLessons.reduce((sum, file) => sum + file.sections.length, 0);
+			let digestText: string;
+			let truncated = false;
+			let totalChars = 0;
+			let shownChars = 0;
+
+			if (agentsFiles.length === 0) {
+				digestText = `No AGENTS.md files found under project root: ${projectRoot}`;
+				totalChars = digestText.length;
+				shownChars = totalChars;
+			} else if (filesWithLessons.length === 0) {
+				digestText =
+					`Found ${agentsFiles.length} AGENTS.md file(s) under ${projectRoot}, ` +
+					"but none contained a Lessons section.";
+				totalChars = digestText.length;
+				shownChars = totalChars;
+			} else {
+				const fullDigest = buildLessonsDigest(projectRoot, filesWithLessons);
+				const capped = applyHardCap(fullDigest, LESSONS_MAX_CHARS);
+				digestText = capped.text;
+				truncated = capped.truncated;
+				totalChars = capped.totalChars;
+				shownChars = capped.shownChars;
+			}
+
+			const message = {
+				customType: LESSONS_MESSAGE_TYPE,
+				content: digestText,
+				display: true,
+				details: {
+					projectRoot,
+					scannedAgentsFiles: agentsFiles.length,
+					filesWithLessons: filesWithLessons.length,
+					lessonsSections: sectionCount,
+					truncated,
+					totalChars,
+					shownChars,
+				},
+			} as const;
+
+			if (ctx.isIdle()) {
+				pi.sendMessage(message, { triggerTurn: false });
+			} else {
+				pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
+			}
+		},
+	});
+
 	function rememberContext(ctx: ExtensionContext): void {
 		currentCtx = ctx;
 	}
 
-	function hasLearnStuffPrompt(): boolean {
+	function hasLearnStuffCommand(): boolean {
 		return pi.getCommands().some((command) => command.name === "learn-stuff");
 	}
 
@@ -92,7 +331,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 	}
 
 	function triggerLearnStuff(reason: string, ctx: ExtensionContext): void {
-		if (!hasLearnStuffPrompt()) {
+		if (!hasLearnStuffCommand()) {
 			if (!warnedMissingPrompt && ctx.hasUI) {
 				warnedMissingPrompt = true;
 				ctx.ui.notify("learn-stuff hook: /learn-stuff command not available", "warning");
