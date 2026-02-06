@@ -1,5 +1,18 @@
+This is our Agent Harness configuration. Clone it to `~/.config/agents` and symlink the parts you want into your harness.
 
-This is our Agent Harness configuration. To use it, clone it to `~/.config/agents` and symlink to your favourite harness.
+## Config map (short)
+
+| Part | What it does |
+| --- | --- |
+| `AGENTS.md` | Global workflow rules (jj commits, tests, planning, tagref). |
+| `APPEND_SYSTEM.md` | Adds subagent usage rules and delegation patterns. |
+| `agents/` | Role cards for scout, planner, worker, reviewer, librarian, and multimodal agents. |
+| `prompts/` | Reusable prompts for scouting, planning, implementation, simplification, and explainers. |
+| `pi-extensions/subagent/` | Runs delegated agents in single, parallel, or chain mode. |
+| `pi-extensions/learn-stuff/` | Writes durable lessons into the closest `AGENTS.md`. |
+| `pi-extensions/quizme/` | Quizzes understanding of session changes and grades answers. |
+| `pi-extensions/` (other tools) | Adds `todo`, `questionnaire`, `loop`, `handoff`, notifications, path guards, theme/status helpers, and image generation. |
+| `skills/dev-browser/` | Persistent Playwright browser automation (standalone server + extension relay). |
 
 # Example commands for using unravel-team/agents configuration with the Pi Coding Agent
 
