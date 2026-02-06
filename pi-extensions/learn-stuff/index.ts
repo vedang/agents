@@ -1,10 +1,11 @@
 /**
  * Learn-Stuff Extension
  *
- * Provides the /learn-stuff prompt template from this extension folder and
- * triggers it on key workflow events.
+ * Loads the /learn-stuff prompt text from this extension folder and triggers
+ * learn-stuff on key workflow events.
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -12,6 +13,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 const LEARN_STUFF_EVENT = "learn-stuff:trigger";
 const baseDir = dirname(fileURLToPath(import.meta.url));
+const PROMPT_FILE = join(baseDir, "prompt.md");
 
 type LearnStuffTriggerPayload = {
 	reason?: string;
@@ -28,16 +30,43 @@ function getReason(payload: unknown): string {
 	return maybe.reason.trim() || "external";
 }
 
+function loadPromptBody(): string | null {
+	if (!existsSync(PROMPT_FILE)) return null;
+	const raw = readFileSync(PROMPT_FILE, "utf-8");
+	const frontmatter = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+	const body = frontmatter ? raw.slice(frontmatter[0].length) : raw;
+	const normalized = body.trim();
+	return normalized.length > 0 ? normalized : null;
+}
+
 export default function learnStuffExtension(pi: ExtensionAPI): void {
 	let lastInputText: string | undefined;
 	let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
 	let currentCtx: ExtensionContext | undefined;
 	let warnedMissingPrompt = false;
 
-	pi.on("resources_discover", () => {
-		return {
-			promptPaths: [join(baseDir, "prompt.md")],
-		};
+	pi.registerCommand("learn-stuff", {
+		description: "Capture lessons into the closest relevant AGENTS.md file(s)",
+		handler: async (args, ctx) => {
+			const promptBody = loadPromptBody();
+			if (!promptBody) {
+				if (ctx.hasUI) {
+					ctx.ui.notify(`learn-stuff prompt file missing: ${PROMPT_FILE}`, "warning");
+				}
+				return;
+			}
+
+			const reason = args.trim();
+			const content = reason
+				? `${promptBody}\n\nTrigger context: ${reason}`
+				: promptBody;
+
+			if (ctx.isIdle()) {
+				pi.sendUserMessage(content);
+			} else {
+				pi.sendUserMessage(content, { deliverAs: "followUp" });
+			}
+		},
 	});
 
 	function rememberContext(ctx: ExtensionContext): void {
@@ -45,9 +74,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 	}
 
 	function hasLearnStuffPrompt(): boolean {
-		return pi
-			.getCommands()
-			.some((command) => command.name === "learn-stuff" && command.source === "prompt");
+		return pi.getCommands().some((command) => command.name === "learn-stuff");
 	}
 
 	function isLoopActive(ctx: ExtensionContext): boolean {
@@ -68,7 +95,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 		if (!hasLearnStuffPrompt()) {
 			if (!warnedMissingPrompt && ctx.hasUI) {
 				warnedMissingPrompt = true;
-				ctx.ui.notify("learn-stuff hook: /learn-stuff prompt not found", "warning");
+				ctx.ui.notify("learn-stuff hook: /learn-stuff command not available", "warning");
 			}
 			return;
 		}
