@@ -104,7 +104,7 @@ Examples:
 
 ### Plan File Creation
 
-1. Create a plan file in the `.agents/plans/` folder before starting work. Create the folder if it does not exist.
+1. Create a plan file in the `.agents/plans/` folder before starting work. Create the folder if it does not exist. Add the folder to `.gitignore` if it has not been added to it.
 2. Filename format: `yyyymmddThhmmss--four-word-plan-name__plan_state.md`
    - Example: `20250127T143022--api-auth-fix__pending.md`
 3. Initial plan state is always `pending`

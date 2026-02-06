@@ -35,7 +35,7 @@ Anything to watch out for.
 Keep the plan concrete. The worker agent will execute it verbatim.
 
 Plan File Creation:
-- Write the plan to a file in the `.agents/plans/` folder. Create the folder if it does not exist.
+- Write the plan to a file in the `.agents/plans/` folder.
 - Filename format: `yyyymmddThhmmss--four-word-plan-name__plan_state.md`
    - Example: `20250127T143022--api-auth-fix__pending.md`
 - Initial plan state is always `pending`
