@@ -38,6 +38,8 @@ Files involved:
 ## Task
 [Clear description of what to do next based on user's goal]`;
 
+const LEARN_STUFF_EVENT = "learn-stuff:trigger";
+
 export default function (pi: ExtensionAPI) {
 	pi.registerCommand("handoff", {
 		description: "Transfer context to a new focused session",
@@ -131,6 +133,10 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("Cancelled", "info");
 				return;
 			}
+
+			// Trigger learn-stuff hook before switching sessions
+			pi.events.emit(LEARN_STUFF_EVENT, { reason: "handoff" });
+			await ctx.waitForIdle();
 
 			// Create new session with parent tracking
 			const newSessionResult = await ctx.newSession({
