@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { Box, Text } from "@mariozechner/pi-tui";
 
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 const LEARN_STUFF_EVENT = "learn-stuff:trigger";
@@ -36,6 +37,61 @@ type LessonsByFile = {
 	path: string;
 	sections: string[];
 };
+
+type LessonsDigestDetails = {
+	projectRoot?: string;
+	scannedAgentsFiles?: number;
+	filesWithLessons?: number;
+	lessonsSections?: number;
+	truncated?: boolean;
+	totalChars?: number;
+	shownChars?: number;
+};
+
+function messageContentToText(content: unknown): string {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.filter((item): item is { type: "text"; text: string } => {
+			if (!item || typeof item !== "object") return false;
+			return (item as { type?: string; text?: unknown }).type === "text";
+		})
+		.map((item) => item.text)
+		.join("\n")
+		.trim();
+}
+
+function formatDigestStats(details: LessonsDigestDetails): string | null {
+	const parts: string[] = [];
+	if (
+		typeof details.filesWithLessons === "number" &&
+		typeof details.scannedAgentsFiles === "number"
+	) {
+		parts.push(`files ${details.filesWithLessons}/${details.scannedAgentsFiles}`);
+	}
+	if (typeof details.lessonsSections === "number") {
+		parts.push(`sections ${details.lessonsSections}`);
+	}
+	if (typeof details.shownChars === "number" && typeof details.totalChars === "number") {
+		parts.push(`chars ${details.shownChars}/${details.totalChars}`);
+	}
+	if (details.truncated) {
+		parts.push("truncated");
+	}
+	return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function buildCollapsedPreview(content: string): string {
+	if (!content.trim()) return "No digest content.";
+	const lines = content
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0)
+		.slice(0, 2);
+	const preview = lines.join("\n");
+	if (preview.length <= 220) return preview;
+	return `${preview.slice(0, 217)}...`;
+}
 
 function isLearnStuffInput(text: string | undefined): boolean {
 	return text?.trim().toLowerCase().startsWith(LEARN_STUFF_COMMAND) ?? false;
@@ -218,6 +274,32 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
 	let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
 	let currentCtx: ExtensionContext | undefined;
 	let warnedMissingPrompt = false;
+
+	pi.registerMessageRenderer(LESSONS_MESSAGE_TYPE, (message, { expanded }, theme) => {
+		const details = (message.details as LessonsDigestDetails | undefined) ?? {};
+		const digestText = messageContentToText(message.content);
+		const stats = formatDigestStats(details);
+		const title = theme.fg("accent", theme.bold("Lessons digest"));
+
+		let text = title;
+		if (stats) {
+			text += `\n${theme.fg(details.truncated ? "warning" : "muted", stats)}`;
+		}
+
+		if (expanded) {
+			if (details.projectRoot) {
+				text += `\n${theme.fg("dim", `root ${details.projectRoot}`)}`;
+			}
+			text += `\n\n${digestText || theme.fg("dim", "No digest content.")}`;
+		} else {
+			text += `\n${theme.fg("dim", buildCollapsedPreview(digestText))}`;
+			text += `\n${theme.fg("dim", "Expand message to view full digest")}`;
+		}
+
+		const box = new Box(1, 1, (value) => theme.bg("customMessageBg", value));
+		box.addChild(new Text(text, 0, 0));
+		return box;
+	});
 
 	pi.registerCommand("learn-stuff", {
 		description: "Capture lessons into the closest relevant AGENTS.md file(s)",
