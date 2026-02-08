@@ -49,3 +49,4 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | `│  ├─ todo.ts`                  | Adds branch-aware todos plus a `/todos` viewer.              |
 | `├─ skills/`                     | Optional skill packages for specialized capabilities.        |
 | `│  ├─ dev-browser/`             | Persistent Playwright automation (server + extension relay). |
+| `│  ├─ playground/`              | Builds interactive single-file HTML explorers with prompt output. |
