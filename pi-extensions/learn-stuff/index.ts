@@ -14,7 +14,9 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { Box, Text } from "@mariozechner/pi-tui";
 import {
+  LEARN_STUFF_DETAILS_MESSAGE_TYPE,
   ORIGINAL_OUTPUT_MESSAGE_TYPE,
+  buildLearnStuffDetailsMessage,
   buildOriginalOutputReplayMessage,
   extractLatestAssistantText,
   shouldReplayOriginalOutput,
@@ -58,6 +60,11 @@ type LessonsDigestDetails = {
 };
 
 type OriginalOutputReplayDetails = {
+  reason?: string;
+  chars?: number;
+};
+
+type LearnStuffOutputDetails = {
   reason?: string;
   chars?: number;
 };
@@ -345,11 +352,11 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
       const details =
         (message.details as OriginalOutputReplayDetails | undefined) ?? {};
       const outputText = messageContentToText(message.content);
-      const title = theme.fg("accent", theme.bold("Original output"));
+      const title = theme.fg("accent", theme.bold("Learn-stuff output"));
 
       let text = title;
       if (details.reason) {
-        text += `\n${theme.fg("muted", `captured before ${details.reason}`)}`;
+        text += `\n${theme.fg("muted", `restored from ${details.reason}`)}`;
       }
       if (typeof details.chars === "number") {
         text += `\n${theme.fg("dim", `chars ${details.chars}`)}`;
@@ -358,8 +365,42 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
       if (expanded) {
         text += `\n\n${outputText || theme.fg("dim", "No output captured.")}`;
       } else {
+        const preview = outputText.trim()
+          ? outputText.split(/\r?\n/).slice(0, 8).join("\n")
+          : "No output captured.";
+        text += `\n\n${preview}`;
+        if (outputText.trim()) {
+          text += `\n${theme.fg("dim", "Expand message to view full output")}`;
+        }
+      }
+
+      const box = new Box(1, 1, (value) => theme.bg("customMessageBg", value));
+      box.addChild(new Text(text, 0, 0));
+      return box;
+    },
+  );
+
+  pi.registerMessageRenderer(
+    LEARN_STUFF_DETAILS_MESSAGE_TYPE,
+    (message, { expanded }, theme) => {
+      const details =
+        (message.details as LearnStuffOutputDetails | undefined) ?? {};
+      const outputText = messageContentToText(message.content);
+      const title = theme.fg("accent", theme.bold("Learn-stuff details"));
+
+      let text = title;
+      if (details.reason) {
+        text += `\n${theme.fg("muted", `captured from ${details.reason}`)}`;
+      }
+      if (typeof details.chars === "number") {
+        text += `\n${theme.fg("dim", `chars ${details.chars}`)}`;
+      }
+
+      if (expanded) {
+        text += `\n\n${outputText || theme.fg("dim", "No details captured.")}`;
+      } else {
         text += `\n${theme.fg("dim", buildCollapsedPreview(outputText))}`;
-        text += `\n${theme.fg("dim", "Expand message to view full output")}`;
+        text += `\n${theme.fg("dim", "Expand message to view full details")}`;
       }
 
       const box = new Box(1, 1, (value) => theme.bg("customMessageBg", value));
@@ -507,6 +548,22 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
     pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
   }
 
+  function emitLearnStuffDetails(
+    learnStuffText: string,
+    reason: string,
+    ctx: ExtensionContext,
+  ): void {
+    if (!learnStuffText.trim()) return;
+    const message = buildLearnStuffDetailsMessage(learnStuffText, reason);
+
+    if (ctx.isIdle()) {
+      pi.sendMessage(message, { triggerTurn: false });
+      return;
+    }
+
+    pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
+  }
+
   function triggerLearnStuff(reason: string, ctx: ExtensionContext): boolean {
     if (!hasLearnStuffCommand()) {
       if (!warnedMissingPrompt && ctx.hasUI) {
@@ -582,6 +639,10 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
         lastInputText,
       })
     ) {
+      const learnStuffOutput = extractLatestAssistantText(event);
+      if (learnStuffOutput) {
+        emitLearnStuffDetails(learnStuffOutput, "session_end", ctx);
+      }
       flushPendingOriginalOutputReplay(ctx);
       return;
     }

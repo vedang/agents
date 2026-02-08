@@ -1,6 +1,7 @@
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 
 export const ORIGINAL_OUTPUT_MESSAGE_TYPE = "learn-stuff-original-output";
+export const LEARN_STUFF_DETAILS_MESSAGE_TYPE = "learn-stuff-details";
 
 type LearnStuffInputSource = "interactive" | "rpc" | "extension" | undefined;
 
@@ -64,6 +65,18 @@ export function shouldReplayOriginalOutput(input: ReplayDecisionInput): boolean 
 export function buildOriginalOutputReplayMessage(content: string, reason: string) {
   return {
     customType: ORIGINAL_OUTPUT_MESSAGE_TYPE,
+    content,
+    display: true,
+    details: {
+      reason,
+      chars: content.length,
+    },
+  } as const;
+}
+
+export function buildLearnStuffDetailsMessage(content: string, reason: string) {
+  return {
+    customType: LEARN_STUFF_DETAILS_MESSAGE_TYPE,
     content,
     display: true,
     details: {

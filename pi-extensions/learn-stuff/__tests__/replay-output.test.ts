@@ -5,7 +5,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  LEARN_STUFF_DETAILS_MESSAGE_TYPE,
   ORIGINAL_OUTPUT_MESSAGE_TYPE,
+  buildLearnStuffDetailsMessage,
   buildOriginalOutputReplayMessage,
   extractLatestAssistantText,
   shouldReplayOriginalOutput,
@@ -74,10 +76,21 @@ test("buildOriginalOutputReplayMessage returns displayable custom message", () =
   assert.equal(message.details.reason, "session_end");
 });
 
+test("buildLearnStuffDetailsMessage returns displayable details message", () => {
+  const message = buildLearnStuffDetailsMessage("learn-stuff output", "session_end");
+
+  assert.equal(message.customType, LEARN_STUFF_DETAILS_MESSAGE_TYPE);
+  assert.equal(message.content, "learn-stuff output");
+  assert.equal(message.display, true);
+  assert.equal(message.details.reason, "session_end");
+});
+
 test("learn-stuff extension source wires replay helper", () => {
   const source = readFileSync(indexSourcePath, "utf8");
 
   assert.ok(source.includes("ORIGINAL_OUTPUT_MESSAGE_TYPE"));
+  assert.ok(source.includes("LEARN_STUFF_DETAILS_MESSAGE_TYPE"));
   assert.ok(source.includes("shouldReplayOriginalOutput("));
   assert.ok(source.includes("buildOriginalOutputReplayMessage("));
+  assert.ok(source.includes("buildLearnStuffDetailsMessage("));
 });
