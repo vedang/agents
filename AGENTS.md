@@ -135,3 +135,4 @@ Follow the rest of this document's development process (test-first, commits, etc
 - For repo-wide inventory/documentation tasks, run parallel `scout` subagents by subtree first, then write concise summaries from that gathered map.
 - In `pi-extensions/subagent`, keep delegated task text in `renderCall` output only; `renderResult` views should show execution output/tool calls and must not re-print `Task:`/`─── Task ───` lines. Keep `pi-extensions/subagent/__tests__/render-result.test.ts` aligned with this split.
 - For `pi-extensions/*/__tests__` suites, run focused checks with `npx tsx --test <glob>` when root make targets are unavailable.
+- For README structure maps intended for rich markdown renderers, prefer tables over fenced tree blocks; preserve hierarchy with `├─`-style prefixes in the entry column.
