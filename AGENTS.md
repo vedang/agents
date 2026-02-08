@@ -134,5 +134,3 @@ Follow the rest of this document's development process (test-first, commits, etc
 - If `make test`, `make check`, or `make format` targets are missing, run each once to confirm, record the absence, and then use the closest project-native validation commands.
 - For repo-wide inventory/documentation tasks, run parallel `scout` subagents by subtree first, then write concise summaries from that gathered map.
 - For README structure maps intended for rich markdown renderers, prefer tables over fenced tree blocks; preserve hierarchy with `├─`-style prefixes in the entry column.
-- When adding or importing a new skill under `skills/`, update the README configuration map in the same pass so discoverability stays current.
-- When a prompt overlaps a skill’s domain, prefer making the prompt a thin delegator to the skill’s canonical templates/workflow instead of maintaining two independent instruction specs.
