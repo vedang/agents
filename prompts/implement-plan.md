@@ -11,12 +11,11 @@ Use the subagent tool with the chain parameter to execute this workflow:
    - EXPECTED OUTCOME
    - MUST DO
    - MUST NOT DO
-5. Use the "worker" agent to implement the task.
-6. Use another "worker" agent to update the progress tracker file, creating marking the task as completed (use {previous} placeholder).
-7. Commit the changes, use "conventional commits" format for writing the commit message, then move to the next task.
-8. After all tasks are complete, launch a "worker" agent with the `simplify-code` prompt to clean up the code. Pass the commit range to the agent so that it knows exactly which code to simplify. (use {previous} placeholder)
-9. After the simplify pass is complete, use the "reviewer" agent to review the work done. Pass the commit range to the reviewer agent so that it knows exactly which code to review. (use {previous} placeholder)
-3. Finally, use the "worker" agent to apply the feedback from the review (use {previous} placeholder)
+5. Use the "worker" agent to implement the task and to update the progress_tracker file associated with the plan. Create a progress_tracker file if it does not exist.
+6. Commit the changes, use "conventional commits" format for writing the commit message, then move to the next task.
+7. After all tasks are complete, launch a "worker" agent with the `simplify-code` prompt to clean up the code. Pass the commit range to the agent so that it knows exactly which code to simplify. (use {previous} placeholder)
+8. After the simplify pass is complete, use the "reviewer" agent to review the work done. Pass the commit range to the reviewer agent so that it knows exactly which code to review. (use {previous} placeholder)
+9. Finally, use the "worker" agent to apply the feedback from the review (use {previous} placeholder)
 
 Execute this as a chain, passing output between steps via {previous}.
 
