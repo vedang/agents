@@ -38,6 +38,7 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | `│  ├─ learn-stuff/`             | Captures durable lessons into the closest AGENTS.md.         |
 | `│  ├─ antigravity-image-gen.ts` | Adds image generation via Antigravity models.                |
 | `│  ├─ confirm-destructive.ts`   | Confirms destructive clear/switch/fork actions.              |
+| `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.      |
 | `│  ├─ handoff.ts`               | Builds focused handoff prompts for new sessions.             |
 | `│  ├─ loop.ts`                  | Repeats follow-up turns until breakout conditions are met.   |
 | `│  ├─ mac-system-theme.ts`      | Syncs Pi theme with macOS light/dark mode.                   |
