@@ -113,12 +113,9 @@ Examples:
 ### Progress Tracker
 
 1. Create a progress tracker file alongside each plan
-2. Filename format: `yyyymmddThhmmss--four-word-plan-name__progress_tracker.md`
+2. Filename format: `yyyyMMddTHHmmss--four-word-plan-name__progress_tracker.md`
 3. Update this file as you complete tasks from the plan
-
-### Lessons
-
-Every time a plan is completed, execute the "learn-stuff" prompt (defined at `~/.config/agents/pi-extensions/learn-stuff/prompt.md`). Capture mistakes, corrections, and patterns in the closest relevant `AGENTS.md` file(s).
+4. Example update format: `- yyyy-MM-dd HH:mm z: What you did.`
 
 ### Workflow
 
@@ -133,5 +130,6 @@ Follow the rest of this document's development process (test-first, commits, etc
 
 ## Lessons
 
+- If the agent-harness is NOT pi-coding-agent, then every time a plan is completed, execute the "learn-stuff" prompt (defined at `~/.config/agents/pi-extensions/learn-stuff/prompt.md`). When working in pi-coding-agent, the extension will run automatically.
 - If `make test`, `make check`, or `make format` targets are missing, run each once to confirm, record the absence, and then use the closest project-native validation commands.
 - For repo-wide inventory/documentation tasks, run parallel `scout` subagents by subtree first, then write concise summaries from that gathered map.
