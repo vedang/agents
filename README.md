@@ -14,14 +14,37 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 
 ## The configuration
 
-| Part                           | What it does                                                                                                             |
-|--------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `AGENTS.md`                    | Global workflow rules (jj commits, tests, planning, tagref).                                                             |
-| `APPEND_SYSTEM.md`             | Adds subagent usage rules and delegation patterns.                                                                       |
-| `agents/`                      | Role cards for scout, planner, worker, reviewer, librarian, and multimodal agents.                                       |
-| `prompts/`                     | Reusable prompts for scouting, planning, implementation, simplification, and explainers.                                 |
-| `pi-extensions/subagent/`      | Runs delegated agents in single, parallel, or chain mode.                                                                |
-| `pi-extensions/learn-stuff/`   | Writes durable lessons into the closest `AGENTS.md`.                                                                     |
-| `pi-extensions/quizme/`        | Quizzes understanding of session changes and grades answers.                                                             |
-| `pi-extensions/` (other tools) | Adds `todo`, `questionnaire`, `loop`, `handoff`, notifications, path guards, theme/status helpers, and image generation. |
-| `skills/dev-browser/`          | Persistent Playwright browser automation (standalone server + extension relay).                                          |
+```text
+.
+├── AGENTS.md — Global workflow rules (jj commits, tests, planning, tagref).
+├── APPEND_SYSTEM.md — Extra system prompt rules for subagent delegation.
+├── agents/
+│   ├── scout.md — Fast codebase recon and structured handoff context.
+│   ├── planner.md — Turns requirements into concrete implementation plans.
+│   ├── worker.md — Executes scoped coding tasks with full tool access.
+│   ├── reviewer.md — Reviews code for quality, bugs, and security issues.
+│   ├── plan-reviewer.md — Critiques plans for missing steps and risk.
+│   ├── librarian.md — Pulls external docs and best-practice guidance.
+│   └── multimodal.md — Analyzes PDFs/images/media for implementation details.
+├── prompts/
+│   ├── scout-and-plan.md — Scouts code, drafts a plan, then reviews the plan.
+│   ├── implement-plan.md — Executes plans task-by-task via chained subagents.
+│   ├── simplify-code.md — Refines changed code while preserving behavior.
+│   └── explain-codebase.md — Generates an interactive codebase explainer site.
+├── pi-extensions/
+│   ├── subagent/ — Runs delegated agents in single, parallel, or chain mode.
+│   ├── quizme/ — Quizzes understanding of session changes and grades answers.
+│   ├── learn-stuff/ — Captures durable lessons into the closest AGENTS.md.
+│   ├── antigravity-image-gen.ts — Adds image generation via Antigravity models.
+│   ├── confirm-destructive.ts — Confirms destructive clear/switch/fork actions.
+│   ├── handoff.ts — Builds focused handoff prompts for new sessions.
+│   ├── loop.ts — Repeats follow-up turns until breakout conditions are met.
+│   ├── mac-system-theme.ts — Syncs Pi theme with macOS light/dark mode.
+│   ├── notify.ts — Sends terminal-native notifications when the agent is done.
+│   ├── protected-paths.ts — Blocks write/edit calls to sensitive paths.
+│   ├── questionnaire.ts — Asks single or multi-question interactive prompts.
+│   ├── status-line.ts — Shows persistent footer status updates across turns.
+│   └── todo.ts — Adds branch-aware todos plus a `/todos` viewer.
+└── skills/
+    └── dev-browser/ — Persistent Playwright automation (server + extension relay).
+```
