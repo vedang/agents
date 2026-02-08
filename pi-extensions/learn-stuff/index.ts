@@ -13,6 +13,12 @@ import type {
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 import { Box, Text } from "@mariozechner/pi-tui";
+import {
+  ORIGINAL_OUTPUT_MESSAGE_TYPE,
+  buildOriginalOutputReplayMessage,
+  extractLatestAssistantText,
+  shouldReplayOriginalOutput,
+} from "./replay";
 
 const LEARN_STUFF_COMMAND = "/learn-stuff";
 const LEARN_STUFF_EVENT = "learn-stuff:trigger";
@@ -49,6 +55,16 @@ type LessonsDigestDetails = {
   truncated?: boolean;
   totalChars?: number;
   shownChars?: number;
+};
+
+type OriginalOutputReplayDetails = {
+  reason?: string;
+  chars?: number;
+};
+
+type PendingOriginalOutputReplay = {
+  text: string;
+  reason: string;
 };
 
 function messageContentToText(content: unknown): string {
@@ -291,6 +307,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
   let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
   let currentCtx: ExtensionContext | undefined;
   let warnedMissingPrompt = false;
+  let pendingOriginalOutputReplay: PendingOriginalOutputReplay | null = null;
 
   pi.registerMessageRenderer(
     LESSONS_MESSAGE_TYPE,
@@ -314,6 +331,35 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
       } else {
         text += `\n${theme.fg("dim", buildCollapsedPreview(digestText))}`;
         text += `\n${theme.fg("dim", "Expand message to view full digest")}`;
+      }
+
+      const box = new Box(1, 1, (value) => theme.bg("customMessageBg", value));
+      box.addChild(new Text(text, 0, 0));
+      return box;
+    },
+  );
+
+  pi.registerMessageRenderer(
+    ORIGINAL_OUTPUT_MESSAGE_TYPE,
+    (message, { expanded }, theme) => {
+      const details =
+        (message.details as OriginalOutputReplayDetails | undefined) ?? {};
+      const outputText = messageContentToText(message.content);
+      const title = theme.fg("accent", theme.bold("Original output"));
+
+      let text = title;
+      if (details.reason) {
+        text += `\n${theme.fg("muted", `captured before ${details.reason}`)}`;
+      }
+      if (typeof details.chars === "number") {
+        text += `\n${theme.fg("dim", `chars ${details.chars}`)}`;
+      }
+
+      if (expanded) {
+        text += `\n\n${outputText || theme.fg("dim", "No output captured.")}`;
+      } else {
+        text += `\n${theme.fg("dim", buildCollapsedPreview(outputText))}`;
+        text += `\n${theme.fg("dim", "Expand message to view full output")}`;
       }
 
       const box = new Box(1, 1, (value) => theme.bg("customMessageBg", value));
@@ -443,7 +489,25 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
     return false;
   }
 
-  function triggerLearnStuff(reason: string, ctx: ExtensionContext): void {
+  function flushPendingOriginalOutputReplay(ctx: ExtensionContext): void {
+    if (!pendingOriginalOutputReplay) return;
+
+    const pending = pendingOriginalOutputReplay;
+    pendingOriginalOutputReplay = null;
+    const message = buildOriginalOutputReplayMessage(
+      pending.text,
+      pending.reason,
+    );
+
+    if (ctx.isIdle()) {
+      pi.sendMessage(message, { triggerTurn: false });
+      return;
+    }
+
+    pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
+  }
+
+  function triggerLearnStuff(reason: string, ctx: ExtensionContext): boolean {
     if (!hasLearnStuffCommand()) {
       if (!warnedMissingPrompt && ctx.hasUI) {
         warnedMissingPrompt = true;
@@ -452,7 +516,7 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
           "warning",
         );
       }
-      return;
+      return false;
     }
 
     warnedMissingPrompt = false;
@@ -464,10 +528,13 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
       } else {
         pi.sendUserMessage(command, { deliverAs: "followUp" });
       }
+      return true;
     } catch (error) {
-      if (!ctx.hasUI) return;
-      const message = error instanceof Error ? error.message : String(error);
-      ctx.ui.notify(`learn-stuff hook failed: ${message}`, "warning");
+      if (ctx.hasUI) {
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.ui.notify(`learn-stuff hook failed: ${message}`, "warning");
+      }
+      return false;
     }
   }
 
@@ -478,30 +545,60 @@ export default function learnStuffExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", async (_event, ctx) => {
+    pendingOriginalOutputReplay = null;
     rememberContext(ctx);
   });
 
   pi.on("session_switch", async (_event, ctx) => {
+    pendingOriginalOutputReplay = null;
     rememberContext(ctx);
   });
 
   pi.on("input", async (event, ctx) => {
     lastInputText = event.text;
     lastInputSource = event.source;
+    const isExtensionLearnStuffInput =
+      event.source === "extension" && isLearnStuffInput(event.text);
+    if (!isExtensionLearnStuffInput) {
+      pendingOriginalOutputReplay = null;
+    }
     rememberContext(ctx);
   });
 
   pi.on("session_fork", async (_event, ctx) => {
+    pendingOriginalOutputReplay = null;
     rememberContext(ctx);
     triggerLearnStuff("fork", ctx);
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("agent_end", async (event, ctx) => {
     rememberContext(ctx);
+
+    if (
+      shouldReplayOriginalOutput({
+        hasPendingMessages: ctx.hasPendingMessages(),
+        hasPendingReplayText: Boolean(pendingOriginalOutputReplay?.text),
+        lastInputSource,
+        lastInputText,
+      })
+    ) {
+      flushPendingOriginalOutputReplay(ctx);
+      return;
+    }
+
     if (ctx.hasPendingMessages()) return;
     if (lastInputSource === "extension") return;
     if (isLearnStuffInput(lastInputText)) return;
     if (isLoopActive(ctx)) return;
-    triggerLearnStuff("session_end", ctx);
+
+    const capturedOutput = extractLatestAssistantText(event);
+    pendingOriginalOutputReplay = capturedOutput
+      ? { text: capturedOutput, reason: "session_end" }
+      : null;
+
+    const triggered = triggerLearnStuff("session_end", ctx);
+    if (!triggered) {
+      pendingOriginalOutputReplay = null;
+    }
   });
 }
