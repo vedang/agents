@@ -130,3 +130,8 @@ Every time a plan is completed, execute the "learn-stuff" prompt (defined at `~/
 6. **Complete**: Rename plan file to `completed` when all tasks are done
 
 Follow the rest of this document's development process (test-first, commits, etc.) while executing tasks from the plan.
+
+## Lessons
+
+- If `make test`, `make check`, or `make format` targets are missing, run each once to confirm, record the absence, and then use the closest project-native validation commands.
+- For repo-wide inventory/documentation tasks, run parallel `scout` subagents by subtree first, then write concise summaries from that gathered map.
