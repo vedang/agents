@@ -133,3 +133,4 @@ Follow the rest of this document's development process (test-first, commits, etc
 - If the agent-harness is NOT pi-coding-agent, then every time a plan is completed, execute the "learn-stuff" prompt (defined at `~/.config/agents/pi-extensions/learn-stuff/prompt.md`). When working in pi-coding-agent, the extension will run automatically.
 - If `make test`, `make check`, or `make format` targets are missing, run each once to confirm, record the absence, and then use the closest project-native validation commands.
 - For repo-wide inventory/documentation tasks, run parallel `scout` subagents by subtree first, then write concise summaries from that gathered map.
+- In `pi-extensions/subagent`, keep delegated task text in `renderCall` output only; `renderResult` views should show execution output/tool calls and must not re-print `Task:`/`─── Task ───` lines. Keep `pi-extensions/subagent/__tests__/render-result.test.ts` aligned with this split.
