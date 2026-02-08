@@ -1,6 +1,7 @@
 ---
 name: planner
-model: openai-codex/gpt-5.2-codex
+provider: openai-codex
+model: gpt-5.2-codex
 tools: read, grep, find, ls
 description: Creates implementation plans from context and requirements
 ---

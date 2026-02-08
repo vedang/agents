@@ -13,7 +13,8 @@ export interface AgentConfig {
 	name: string;
 	description: string;
 	tools?: string[];
-	// Supports either "model" or "provider/model".
+	// provider/model must be specified as separate frontmatter keys.
+	provider?: string;
 	model?: string;
 	systemPrompt: string;
 	source: "user" | "project";
@@ -66,6 +67,7 @@ function loadAgentsFromDir(dir: string, source: "user" | "project"): AgentConfig
 			name: frontmatter.name,
 			description: frontmatter.description,
 			tools: tools && tools.length > 0 ? tools : undefined,
+			provider: frontmatter.provider,
 			model: frontmatter.model,
 			systemPrompt: body,
 			source,

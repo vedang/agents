@@ -1,6 +1,7 @@
 ---
 name: scout
-model: cerebras/zai-glm-4.7
+provider: cerebras
+model: zai-glm-4.7
 temperature: 0.9
 top_p: 0.95
 tools: read, grep, find, ls, bash

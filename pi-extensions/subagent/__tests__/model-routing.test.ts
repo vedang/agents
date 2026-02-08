@@ -4,22 +4,21 @@ import test from "node:test";
 import {
 	buildModelCliArgs,
 	getModelMismatch,
-	getPreferredModelLabel,
+	getRuntimeModelLabel,
 } from "../model-routing";
 
-test("buildModelCliArgs splits provider/model frontmatter value", () => {
-	const resolved = buildModelCliArgs("cerebras/zai-glm-4.7");
+test("buildModelCliArgs uses explicit provider + model frontmatter keys", () => {
+	const resolved = buildModelCliArgs("cerebras", "zai-glm-4.7");
 
 	assert.equal(resolved.ok, true);
 	if (!resolved.ok) return;
 	assert.deepEqual(resolved.args, ["--provider", "cerebras", "--model", "zai-glm-4.7"]);
-	assert.equal(resolved.requested?.raw, "cerebras/zai-glm-4.7");
 	assert.equal(resolved.requested?.provider, "cerebras");
 	assert.equal(resolved.requested?.model, "zai-glm-4.7");
 });
 
-test("buildModelCliArgs keeps bare model values backward compatible", () => {
-	const resolved = buildModelCliArgs("gpt-5.2-codex");
+test("buildModelCliArgs keeps model-only values backward compatible", () => {
+	const resolved = buildModelCliArgs(undefined, "gpt-5.2-codex");
 
 	assert.equal(resolved.ok, true);
 	if (!resolved.ok) return;
@@ -28,27 +27,42 @@ test("buildModelCliArgs keeps bare model values backward compatible", () => {
 	assert.equal(resolved.requested?.model, "gpt-5.2-codex");
 });
 
-test("buildModelCliArgs supports provider/model values where model part contains slashes", () => {
-	const resolved = buildModelCliArgs("openrouter/openai/gpt-5-codex");
+test("buildModelCliArgs allows missing provider+model and uses default runtime model", () => {
+	const resolved = buildModelCliArgs(undefined, undefined);
+
+	assert.equal(resolved.ok, true);
+	if (!resolved.ok) return;
+	assert.deepEqual(resolved.args, []);
+	assert.equal(resolved.requested, null);
+});
+
+test("buildModelCliArgs allows slash-containing model when provider is explicit", () => {
+	const resolved = buildModelCliArgs("openrouter", "openai/gpt-5-codex");
 
 	assert.equal(resolved.ok, true);
 	if (!resolved.ok) return;
 	assert.deepEqual(resolved.args, ["--provider", "openrouter", "--model", "openai/gpt-5-codex"]);
-	assert.equal(resolved.requested?.provider, "openrouter");
-	assert.equal(resolved.requested?.model, "openai/gpt-5-codex");
 });
 
-test("buildModelCliArgs rejects malformed provider/model values", () => {
-	for (const value of ["cerebras/", "/zai-glm-4.7", "   "]) {
-		const resolved = buildModelCliArgs(value);
-		assert.equal(resolved.ok, false);
-		if (resolved.ok) continue;
-		assert.match(resolved.error, /invalid model/i);
-	}
+test("buildModelCliArgs rejects namespaced model without explicit provider", () => {
+	const resolved = buildModelCliArgs(undefined, "cerebras/zai-glm-4.7");
+
+	assert.equal(resolved.ok, false);
+	if (resolved.ok) return;
+	assert.match(resolved.error, /provider/i);
+	assert.match(resolved.error, /model: zai-glm-4.7/i);
 });
 
-test("getPreferredModelLabel prefers runtime provider/model when available", () => {
-	const label = getPreferredModelLabel({
+test("buildModelCliArgs rejects empty model values", () => {
+	const resolved = buildModelCliArgs("cerebras", "   ");
+
+	assert.equal(resolved.ok, false);
+	if (resolved.ok) return;
+	assert.match(resolved.error, /model/i);
+});
+
+test("getRuntimeModelLabel always reports runtime provider/model only", () => {
+	const label = getRuntimeModelLabel({
 		requestedProvider: "cerebras",
 		requestedModel: "zai-glm-4.7",
 		runtimeProvider: "openai-codex",
@@ -56,9 +70,15 @@ test("getPreferredModelLabel prefers runtime provider/model when available", () 
 	});
 
 	assert.equal(label, "openai-codex/gpt-5.3-codex");
+
+	const noRuntime = getRuntimeModelLabel({
+		requestedProvider: "cerebras",
+		requestedModel: "zai-glm-4.7",
+	});
+	assert.equal(noRuntime, undefined);
 });
 
-test("getModelMismatch reports requested vs runtime mismatch for namespaced requests", () => {
+test("getModelMismatch reports requested vs runtime mismatch for explicit provider", () => {
 	const mismatch = getModelMismatch({
 		requestedProvider: "cerebras",
 		requestedModel: "zai-glm-4.7",

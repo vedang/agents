@@ -18,3 +18,10 @@ test("renderResult includes explicit model mismatch warnings", () => {
 
 	assert.equal(source.includes("Model mismatch:"), true);
 });
+
+test("renderResult uses runtime model labels rather than requested fallbacks", () => {
+	const source = readFileSync(sourcePath, "utf8");
+
+	assert.equal(source.includes("getRuntimeModelLabel"), true);
+	assert.equal(source.includes("getPreferredModelLabel"), false);
+});

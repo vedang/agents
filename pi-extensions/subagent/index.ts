@@ -23,7 +23,7 @@ import { type ExtensionAPI, getMarkdownTheme } from "@mariozechner/pi-coding-age
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
-import { buildModelCliArgs, getModelMismatch, getPreferredModelLabel } from "./model-routing.js";
+import { buildModelCliArgs, getModelMismatch, getRuntimeModelLabel } from "./model-routing.js";
 import { buildSubagentCallText } from "./render-call.js";
 
 const MAX_PARALLEL_TASKS = 8;
@@ -193,9 +193,7 @@ function getDisplayItems(messages: Message[]): DisplayItem[] {
 }
 
 function getResultModelLabel(result: SingleResult): string | undefined {
-	return getPreferredModelLabel({
-		requestedProvider: result.requestedProvider,
-		requestedModel: result.requestedModel,
+	return getRuntimeModelLabel({
 		runtimeProvider: result.runtimeProvider,
 		runtimeModel: result.runtimeModel,
 	});
@@ -269,7 +267,7 @@ async function runSingleAgent(
 	}
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	const modelArgs = buildModelCliArgs(agent.model);
+	const modelArgs = buildModelCliArgs(agent.provider, agent.model);
 	if (!modelArgs.ok) {
 		return {
 			agent: agentName,
@@ -279,6 +277,7 @@ async function runSingleAgent(
 			messages: [],
 			stderr: `Agent ${agentName}: ${modelArgs.error}`,
 			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+			requestedProvider: agent.provider?.trim() || undefined,
 			requestedModel: agent.model?.trim() || undefined,
 			step,
 		};

@@ -1,6 +1,7 @@
 ---
 name: multimodal
-model: google/gemini-3-flash
+provider: google
+model: gemini-3-flash
 tools: read
 description: Media Analysis subagent. Use for reading PDFs, images, or other media
 ---

@@ -1,5 +1,4 @@
 export interface RequestedModelConfig {
-	raw: string;
 	provider?: string;
 	model: string;
 }
@@ -20,46 +19,64 @@ function formatModelLabel(provider: string | undefined, model: string | undefine
 	return provider ? `${provider}/${model}` : model;
 }
 
-function buildInvalidModelError(rawModel: string): string {
-	return `Invalid model spec: "${rawModel}". Use "model" or "provider/model".`;
+function buildMissingModelError(providerRaw: string | undefined): string {
+	const providerHint = providerRaw?.trim()
+		? ` Provider is set to "${providerRaw.trim()}".`
+		: "";
+	return `Invalid model frontmatter: model is empty.${providerHint} Set model to a provider-local ID (for example model: zai-glm-4.7).`;
 }
 
-export function buildModelCliArgs(rawModel: string | undefined): BuildModelCliArgsResult {
-	if (rawModel === undefined) {
-		return { ok: true, requested: null, args: [] };
+function buildNamespacedModelWithoutProviderError(rawModel: string): string {
+	const trimmed = rawModel.trim();
+	const slash = trimmed.indexOf("/");
+	const suggestedProvider = slash > 0 ? trimmed.slice(0, slash) : "<provider>";
+	const suggestedModel = slash > 0 ? trimmed.slice(slash + 1) : "<model>";
+	return [
+		`Invalid model frontmatter: model contains a provider prefix ("${trimmed}").`,
+		"Do not encode provider in model.",
+		`Use:\nprovider: ${suggestedProvider}\nmodel: ${suggestedModel}`,
+	].join(" ");
+}
+
+function normalizeOptional(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export function buildModelCliArgs(
+	rawProvider: string | undefined,
+	rawModel: string | undefined,
+): BuildModelCliArgsResult {
+	const provider = normalizeOptional(rawProvider);
+	const model = normalizeOptional(rawModel);
+
+	if (!model) {
+		if (!provider) return { ok: true, requested: null, args: [] };
+		return { ok: false, error: buildMissingModelError(rawProvider) };
 	}
 
-	const raw = rawModel.trim();
-	if (!raw) return { ok: false, error: buildInvalidModelError(rawModel) };
+	if (!provider && model.includes("/")) {
+		return { ok: false, error: buildNamespacedModelWithoutProviderError(model) };
+	}
 
-	const firstSlash = raw.indexOf("/");
-	if (firstSlash === -1) {
+	if (provider) {
 		return {
 			ok: true,
-			requested: { raw, model: raw },
-			args: ["--model", raw],
+			requested: { provider, model },
+			args: ["--provider", provider, "--model", model],
 		};
-	}
-
-	const provider = raw.slice(0, firstSlash).trim();
-	const model = raw.slice(firstSlash + 1).trim();
-	if (!provider || !model) {
-		return { ok: false, error: buildInvalidModelError(rawModel) };
 	}
 
 	return {
 		ok: true,
-		requested: { raw, provider, model },
-		args: ["--provider", provider, "--model", model],
+		requested: { model },
+		args: ["--model", model],
 	};
 }
 
-export function getPreferredModelLabel(snapshot: ModelRoutingSnapshot): string | undefined {
-	return (
-		formatModelLabel(snapshot.runtimeProvider, snapshot.runtimeModel) ??
-		formatModelLabel(snapshot.requestedProvider, snapshot.requestedModel) ??
-		undefined
-	);
+export function getRuntimeModelLabel(snapshot: ModelRoutingSnapshot): string | undefined {
+	return formatModelLabel(snapshot.runtimeProvider, snapshot.runtimeModel) ?? undefined;
 }
 
 export function getModelMismatch(snapshot: ModelRoutingSnapshot): { requested: string; actual: string } | null {
