@@ -4,93 +4,25 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  LEARN_STUFF_DETAILS_MESSAGE_TYPE,
-  ORIGINAL_OUTPUT_MESSAGE_TYPE,
-  buildLearnStuffDetailsMessage,
-  buildOriginalOutputReplayMessage,
-  extractLatestAssistantText,
-  shouldReplayOriginalOutput,
-} from "../replay";
+const sourcePath = join(dirname(fileURLToPath(import.meta.url)), "..", "index.ts");
 
-const indexSourcePath = join(dirname(fileURLToPath(import.meta.url)), "..", "index.ts");
+test("learn-stuff source removes replay pipeline state", () => {
+	const source = readFileSync(sourcePath, "utf8");
 
-test("extractLatestAssistantText returns last assistant text block", () => {
-  const text = extractLatestAssistantText({
-    messages: [
-      {
-        role: "assistant",
-        content: [{ type: "text", text: "first" }],
-      },
-      {
-        role: "assistant",
-        content: [{ type: "text", text: "second" }],
-      },
-    ],
-  });
-
-  assert.equal(text, "second");
+	assert.equal(source.includes("pendingOriginalOutputReplay"), false);
+	assert.equal(source.includes("ORIGINAL_OUTPUT_MESSAGE_TYPE"), false);
+	assert.equal(source.includes("Learn-stuff details"), false);
 });
 
-test("extractLatestAssistantText returns null when no assistant text exists", () => {
-  const text = extractLatestAssistantText({
-    messages: [
-      {
-        role: "assistant",
-        content: [{ type: "toolCall", name: "read", arguments: {} }],
-      },
-    ],
-  });
+test("learn-stuff source keeps both manual commands", () => {
+	const source = readFileSync(sourcePath, "utf8");
 
-  assert.equal(text, null);
+	assert.equal(source.includes('pi.registerCommand("learn-stuff"'), true);
+	assert.equal(source.includes('pi.registerCommand("learn-stuff:lessons"'), true);
 });
 
-test("shouldReplayOriginalOutput gates replay to learn-stuff extension follow-up", () => {
-  assert.equal(
-    shouldReplayOriginalOutput({
-      hasPendingMessages: false,
-      hasPendingReplayText: true,
-      lastInputSource: "extension",
-      lastInputText: "/learn-stuff session_end",
-    }),
-    true,
-  );
+test("learn-stuff source emits Insight-style lessons block", () => {
+	const source = readFileSync(sourcePath, "utf8");
 
-  assert.equal(
-    shouldReplayOriginalOutput({
-      hasPendingMessages: false,
-      hasPendingReplayText: true,
-      lastInputSource: "interactive",
-      lastInputText: "/learn-stuff session_end",
-    }),
-    false,
-  );
-});
-
-test("buildOriginalOutputReplayMessage returns displayable custom message", () => {
-  const message = buildOriginalOutputReplayMessage("Original answer", "session_end");
-
-  assert.equal(message.customType, ORIGINAL_OUTPUT_MESSAGE_TYPE);
-  assert.equal(message.content, "Original answer");
-  assert.equal(message.display, true);
-  assert.equal(message.details.reason, "session_end");
-});
-
-test("buildLearnStuffDetailsMessage returns displayable details message", () => {
-  const message = buildLearnStuffDetailsMessage("learn-stuff output", "session_end");
-
-  assert.equal(message.customType, LEARN_STUFF_DETAILS_MESSAGE_TYPE);
-  assert.equal(message.content, "learn-stuff output");
-  assert.equal(message.display, true);
-  assert.equal(message.details.reason, "session_end");
-});
-
-test("learn-stuff extension source wires replay helper", () => {
-  const source = readFileSync(indexSourcePath, "utf8");
-
-  assert.ok(source.includes("ORIGINAL_OUTPUT_MESSAGE_TYPE"));
-  assert.ok(source.includes("LEARN_STUFF_DETAILS_MESSAGE_TYPE"));
-  assert.ok(source.includes("shouldReplayOriginalOutput("));
-  assert.ok(source.includes("buildOriginalOutputReplayMessage("));
-  assert.ok(source.includes("buildLearnStuffDetailsMessage("));
+	assert.equal(source.includes("★ Insight"), true);
 });
