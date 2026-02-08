@@ -30,12 +30,12 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | `├─ prompts/`                       | Reusable prompt templates for common workflows.                   |
 | `│  ├─ scout-and-plan.md`           | Scouts code, drafts a plan, then reviews the plan.                |
 | `│  ├─ implement-plan.md`           | Executes plans task-by-task via chained subagents.                |
-| `│  ├─ simplify-code.md`            | Refines changed code while preserving behavior.                   |
 | `│  ├─ explain-codebase.md`         | Generates an interactive codebase explainer site.                 |
 | `├─ pi-extensions/`                 | Runtime extensions that add commands/tools/UI behaviors.          |
 | `│  ├─ subagent/`                   | Runs delegated agents in single, parallel, or chain mode.         |
 | `│  ├─ quizme/`                     | Quizzes understanding of session changes and grades answers.      |
 | `│  ├─ learn-stuff/`                | Captures durable lessons into the closest AGENTS.md.              |
+| `│  ├─ simplify-code/`              | Refines changed code while preserving behavior.                   |
 | `│  ├─ antigravity-image-gen.ts`    | Adds image generation via Antigravity models.                     |
 | `│  ├─ confirm-destructive.ts`      | Confirms destructive clear/switch/fork actions.                   |
 | `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.            |

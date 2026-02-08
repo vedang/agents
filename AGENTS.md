@@ -50,9 +50,6 @@ Before committing:
 3. Run `make format` - ensure code is formatted
 4. Write tests for any new code if tests don't exist
 
-After committing:
-1. Run the simplify-code prompt (see `~/.config/agents/prompts/simplify-code.md`) to review and refine the committed code for clarity, consistency, and maintainability.
-
 Only move to the next task after the commit is complete.
 
 **ALWAYS commit changes** - even bug fixes, small improvements, or config changes. This maintains a clean history and allows easy rollback if needed. Never leave work uncommitted.
