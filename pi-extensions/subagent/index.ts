@@ -23,6 +23,7 @@ import { type ExtensionAPI, getMarkdownTheme } from "@mariozechner/pi-coding-age
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
+import { buildModelCliArgs, getModelMismatch, getPreferredModelLabel } from "./model-routing.js";
 import { buildSubagentCallText } from "./render-call.js";
 
 const MAX_PARALLEL_TASKS = 8;
@@ -148,7 +149,10 @@ interface SingleResult {
 	messages: Message[];
 	stderr: string;
 	usage: UsageStats;
-	model?: string;
+	requestedProvider?: string;
+	requestedModel?: string;
+	runtimeProvider?: string;
+	runtimeModel?: string;
 	stopReason?: string;
 	errorMessage?: string;
 	step?: number;
@@ -186,6 +190,26 @@ function getDisplayItems(messages: Message[]): DisplayItem[] {
 		}
 	}
 	return items;
+}
+
+function getResultModelLabel(result: SingleResult): string | undefined {
+	return getPreferredModelLabel({
+		requestedProvider: result.requestedProvider,
+		requestedModel: result.requestedModel,
+		runtimeProvider: result.runtimeProvider,
+		runtimeModel: result.runtimeModel,
+	});
+}
+
+function getModelMismatchText(result: SingleResult): string | null {
+	const mismatch = getModelMismatch({
+		requestedProvider: result.requestedProvider,
+		requestedModel: result.requestedModel,
+		runtimeProvider: result.runtimeProvider,
+		runtimeModel: result.runtimeModel,
+	});
+	if (!mismatch) return null;
+	return `requested ${mismatch.requested} but ran ${mismatch.actual}`;
 }
 
 async function mapWithConcurrencyLimit<TIn, TOut>(
@@ -245,7 +269,21 @@ async function runSingleAgent(
 	}
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	if (agent.model) args.push("--model", agent.model);
+	const modelArgs = buildModelCliArgs(agent.model);
+	if (!modelArgs.ok) {
+		return {
+			agent: agentName,
+			agentSource: agent.source,
+			task,
+			exitCode: 1,
+			messages: [],
+			stderr: `Agent ${agentName}: ${modelArgs.error}`,
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+			requestedModel: agent.model?.trim() || undefined,
+			step,
+		};
+	}
+	args.push(...modelArgs.args);
 	if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
 
 	let tmpPromptDir: string | null = null;
@@ -259,7 +297,8 @@ async function runSingleAgent(
 		messages: [],
 		stderr: "",
 		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
-		model: agent.model,
+		requestedProvider: modelArgs.requested?.provider,
+		requestedModel: modelArgs.requested?.model,
 		step,
 	};
 
@@ -311,7 +350,9 @@ async function runSingleAgent(
 							currentResult.usage.cost += usage.cost?.total || 0;
 							currentResult.usage.contextTokens = usage.totalTokens || 0;
 						}
-						if (!currentResult.model && msg.model) currentResult.model = msg.model;
+						if (msg.model) currentResult.runtimeModel = msg.model;
+						const runtimeProvider = (msg as Message & { provider?: string }).provider;
+						if (runtimeProvider) currentResult.runtimeProvider = runtimeProvider;
 						if (msg.stopReason) currentResult.stopReason = msg.stopReason;
 						if (msg.errorMessage) currentResult.errorMessage = msg.errorMessage;
 					}
@@ -709,10 +750,12 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 					}
-					const usageStr = formatUsageStats(r.usage, r.model);
-					if (usageStr) {
+					const usageStr = formatUsageStats(r.usage, getResultModelLabel(r));
+					const mismatchText = getModelMismatchText(r);
+					if (usageStr || mismatchText) {
 						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
+						if (usageStr) container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
+						if (mismatchText) container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
 					}
 					return container;
 				}
@@ -725,8 +768,10 @@ export default function (pi: ExtensionAPI) {
 					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
-				const usageStr = formatUsageStats(r.usage, r.model);
+				const usageStr = formatUsageStats(r.usage, getResultModelLabel(r));
 				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
+				const mismatchText = getModelMismatchText(r);
+				if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
 				return new Text(text, 0, 0);
 			}
 
@@ -793,8 +838,11 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const stepUsage = formatUsageStats(r.usage, r.model);
+						const stepUsage = formatUsageStats(r.usage, getResultModelLabel(r));
 						if (stepUsage) container.addChild(new Text(theme.fg("dim", stepUsage), 0, 0));
+						const mismatchText = getModelMismatchText(r);
+						if (mismatchText)
+							container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
@@ -817,6 +865,10 @@ export default function (pi: ExtensionAPI) {
 					text += `\n\n${theme.fg("muted", `─── Step ${r.step}: `)}${theme.fg("accent", r.agent)} ${rIcon}`;
 					if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
+					const stepUsage = formatUsageStats(r.usage, getResultModelLabel(r));
+					if (stepUsage) text += `\n${theme.fg("dim", stepUsage)}`;
+					const mismatchText = getModelMismatchText(r);
+					if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
 				}
 				const usageStr = formatUsageStats(aggregateUsage(details.results));
 				if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
@@ -877,8 +929,11 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const taskUsage = formatUsageStats(r.usage, r.model);
+						const taskUsage = formatUsageStats(r.usage, getResultModelLabel(r));
 						if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
+						const mismatchText = getModelMismatchText(r);
+						if (mismatchText)
+							container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
@@ -903,6 +958,12 @@ export default function (pi: ExtensionAPI) {
 					if (displayItems.length === 0)
 						text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
+					if (r.exitCode !== -1) {
+						const taskUsage = formatUsageStats(r.usage, getResultModelLabel(r));
+						if (taskUsage) text += `\n${theme.fg("dim", taskUsage)}`;
+						const mismatchText = getModelMismatchText(r);
+						if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
+					}
 				}
 				if (!isRunning) {
 					const usageStr = formatUsageStats(aggregateUsage(details.results));

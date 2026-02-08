@@ -13,6 +13,7 @@ export interface AgentConfig {
 	name: string;
 	description: string;
 	tools?: string[];
+	// Supports either "model" or "provider/model".
 	model?: string;
 	systemPrompt: string;
 	source: "user" | "project";

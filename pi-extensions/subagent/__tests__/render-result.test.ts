@@ -12,3 +12,9 @@ test("renderResult avoids repeating the delegated task prompt", () => {
 	assert.equal(source.includes("─── Task ───"), false);
 	assert.equal(source.includes('theme.fg("muted", "Task: ")'), false);
 });
+
+test("renderResult includes explicit model mismatch warnings", () => {
+	const source = readFileSync(sourcePath, "utf8");
+
+	assert.equal(source.includes("Model mismatch:"), true);
+});
