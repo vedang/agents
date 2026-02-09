@@ -1,6 +1,6 @@
 # .config/agents
 
-This is my Agent Harness configuration. Clone it to `~/.config/agents` and symlink the parts you want into your harness.
+This is my Agent Harness configuration. Tell your agent to clone it to `~/.config/agents` and symlink the parts you want into your harness.
 
 ## Example commands for using unravel-team/agents configuration with the Pi Coding Agent
 
@@ -17,9 +17,6 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | Entry                               | What it does                                                       |
 | ----------------------------------- | ------------------------------------------------------------------ |
 | `.`                                 | Config root.                                                       |
-| `├─ .agents/`                       | Local planning workspace used by agent workflows.                  |
-| `│  └─ plans/`                      | Timestamped plan/progress tracker files (gitignored).              |
-| `├─ .gitignore`                     | Ignores local planning artifacts and scratch experiment paths.     |
 | `├─ AGENTS.md`                      | Global workflow rules (jj commits, tests, planning, tagref).       |
 | `├─ APPEND_SYSTEM.md`               | Extra system prompt rules for subagent delegation.                 |
 | `├─ agents/`                        | Role-card definitions for specialized subagents.                   |
@@ -30,15 +27,11 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | `│  ├─ plan-reviewer.md`            | Critiques plans for missing steps and risk.                        |
 | `│  ├─ librarian.md`                | Pulls external docs and best-practice guidance.                    |
 | `│  ├─ multimodal.md`               | Analyzes PDFs/images/media for implementation details.             |
-| `├─ bad-experiments/`               | Sandbox area for experimental extensions and prompts.              |
-| `│  └─ learn-stuff/`                | Archived learn-stuff experiment with prompt/tests/helpers.         |
 | `├─ prompts/`                       | Reusable prompt templates for common workflows.                    |
 | `│  ├─ scout-and-plan.md`           | Scouts code, drafts a plan, then reviews the plan.                 |
 | `│  ├─ implement-plan.md`           | Executes plans task-by-task via chained subagents.                 |
 | `│  ├─ explain-codebase.md`         | Delegates interactive codebase explainer generation to playground. |
 | `├─ pi-extensions/`                 | Runtime extensions that add commands/tools/UI behaviors.           |
-| `│  ├─ AGENTS.md`                   | Extension-specific lessons and maintenance notes.                  |
-| `│  ├─ __tests__/`                  | Root-level extension tests.                                        |
 | `│  ├─ subagent/`                   | Runs delegated agents in single, parallel, or chain mode.          |
 | `│  ├─ quizme/`                     | Quizzes understanding of session changes and grades answers.       |
 | `│  ├─ simplify-code/`              | Refines changed code while preserving behavior.                    |
