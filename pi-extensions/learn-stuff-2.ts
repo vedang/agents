@@ -10,6 +10,8 @@ import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:pa
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 const LEARN_STUFF_2_MODE_SENTINEL = "You are in 'learn-stuff-2' mode";
+const SHOW_LESSONS_COMMAND = "learn-stuff:show-lessons";
+const ADD_LESSON_COMMAND = "learn-stuff:add-lesson";
 const LESSONS_BLOCK_LABEL = "★ Lessons";
 const LESSONS_BLOCK_DIVIDER = "─────────────────────────────────────────────────";
 const SHOW_LESSONS_MESSAGE_TYPE = "learn-stuff-2-show-lessons";
@@ -514,7 +516,9 @@ function pushMessage(
 	pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
 }
 
-async function persistLessonsForTargets(targets: string[], lessons: string[]): Promise<void> {
+async function persistLessonsForTargets(targets: string[], lessons: string[]): Promise<number> {
+	let addedCount = 0;
+
 	for (const target of targets) {
 		let existingContent = "";
 		if (existsSync(target)) {
@@ -523,11 +527,14 @@ async function persistLessonsForTargets(targets: string[], lessons: string[]): P
 
 		const merged = mergeLessonsIntoAgentsContent(existingContent, lessons);
 		if (merged.addedCount === 0) continue;
+		addedCount += merged.addedCount;
 
 		await mkdir(dirname(target), { recursive: true });
 		const contentToWrite = merged.content.endsWith("\n") ? merged.content : `${merged.content}\n`;
 		await writeFile(target, contentToWrite, "utf-8");
 	}
+
+	return addedCount;
 }
 
 export function applyLearnStuffTwo(systemPrompt: string): string {
@@ -605,7 +612,7 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 		queuePersistence([...targets], lessons);
 	});
 
-	pi.registerCommand("show-lessons", {
+	pi.registerCommand(SHOW_LESSONS_COMMAND, {
 		description: "Collect Lessons sections from AGENTS.md files",
 		handler: async (_args, ctx) => {
 			const projectRoot = findProjectRoot(ctx.cwd);
@@ -651,6 +658,30 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 				content: capDigest(digest, SHOW_LESSONS_MAX_CHARS),
 				display: true,
 			});
+		},
+	});
+
+	pi.registerCommand(ADD_LESSON_COMMAND, {
+		description: "Manually add one lesson to cwd AGENTS.md",
+		handler: async (args, ctx) => {
+			const lesson = normalizeLesson(args);
+			if (!lesson) {
+				if (ctx.hasUI) {
+					ctx.ui.notify(`Usage: /${ADD_LESSON_COMMAND} <lesson>`, "warning");
+				}
+				return;
+			}
+
+			const target = join(ctx.cwd, "AGENTS.md");
+			const added = await persistLessonsForTargets([target], [lesson]);
+
+			if (!ctx.hasUI) return;
+			if (added > 0) {
+				ctx.ui.notify(`Added lesson to ${target}`, "success");
+				return;
+			}
+
+			ctx.ui.notify(`Lesson already exists in ${target}`, "info");
 		},
 	});
 }

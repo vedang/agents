@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import learnStuffTwo, {
@@ -32,6 +35,7 @@ test("extension registers before_agent_start and injects context", async () => {
 	let beforeAgentStart: Handler | undefined;
 
 	type CommandHandler = (args: string, ctx: unknown) => Promise<void>;
+	const commands = new Map<string, { handler: CommandHandler }>();
 
 	const pi = {
 		on(eventName: string, handler: Handler) {
@@ -39,8 +43,8 @@ test("extension registers before_agent_start and injects context", async () => {
 				beforeAgentStart = handler;
 			}
 		},
-		registerCommand(_name: string, _options: { handler: CommandHandler }) {
-			// no-op
+		registerCommand(name: string, options: { handler: CommandHandler }) {
+			commands.set(name, options);
 		},
 		events: {
 			on(_eventName: string, _handler: (payload: unknown) => void) {
@@ -55,6 +59,74 @@ test("extension registers before_agent_start and injects context", async () => {
 	const result = await beforeAgentStart!({ systemPrompt: "BASE" });
 	assert.ok(result);
 	assert.ok(result!.systemPrompt.includes("You are in 'learn-stuff-2' mode"));
+	assert.equal(commands.has("learn-stuff:show-lessons"), true);
+	assert.equal(commands.has("learn-stuff:add-lesson"), true);
+	assert.equal(commands.has("show-lessons"), false);
+});
+
+test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
+	type CommandHandler = (args: string, ctx: unknown) => Promise<void>;
+	const commands = new Map<string, { handler: CommandHandler }>();
+
+	const pi = {
+		on(_eventName: string, _handler: unknown) {
+			// no-op
+		},
+		registerCommand(name: string, options: { handler: CommandHandler }) {
+			commands.set(name, options);
+		},
+		events: {
+			on(_eventName: string, _handler: (payload: unknown) => void) {
+				// no-op
+			},
+		},
+		sendMessage(_message: unknown, _options?: unknown) {
+			// no-op
+		},
+	};
+
+	learnStuffTwo(pi as never);
+	const command = commands.get("learn-stuff:add-lesson");
+	assert.ok(command, "learn-stuff:add-lesson command should be registered");
+
+	const tempDir = mkdtempSync(join(tmpdir(), "learn-stuff-2-"));
+	const agentsPath = join(tempDir, "AGENTS.md");
+
+	try {
+		const ctx = {
+			cwd: tempDir,
+			hasUI: false,
+			ui: {
+				notify(_message: string, _type: string) {
+					// no-op
+				},
+			},
+		};
+
+		await command!.handler(
+			"there is no need to create a commit when we change .agents/plans files, since .agents/plans is gitignored",
+			ctx as never,
+		);
+
+		const firstWrite = readFileSync(agentsPath, "utf-8");
+		assert.ok(firstWrite.includes("## Lessons"));
+		assert.ok(
+			firstWrite.includes(
+				"- there is no need to create a commit when we change .agents/plans files, since .agents/plans is gitignored",
+			),
+		);
+
+		await command!.handler(
+			"there is no need to create commit when we change .agents/plans files since .agents/plans is gitignored",
+			ctx as never,
+		);
+
+		const secondWrite = readFileSync(agentsPath, "utf-8");
+		const matches = secondWrite.match(/- there is no need to create/gi) ?? [];
+		assert.equal(matches.length, 1);
+	} finally {
+		rmSync(tempDir, { recursive: true, force: true });
+	}
 });
 
 test("extractLessonsFromAssistantOutput parses lessons bullets from block", () => {
