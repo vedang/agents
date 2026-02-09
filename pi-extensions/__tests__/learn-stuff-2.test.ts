@@ -85,6 +85,59 @@ test("mergeLessonsIntoAgentsContent appends only new lessons", () => {
 	assert.ok(merged.content.includes("- Persist lessons close to changed code."));
 });
 
+test("mergeLessonsIntoAgentsContent de-duplicates strong canonical variants", () => {
+	const existing = [
+		"# Team Rules",
+		"",
+		"## Lessons",
+		"",
+		"- Persist lessons into nearest AGENTS file for each changed module.",
+	].join("\n");
+
+	const merged = mergeLessonsIntoAgentsContent(existing, [
+		"Persisting lesson into nearest agents files for changed modules.",
+	]);
+
+	assert.equal(merged.addedCount, 0);
+});
+
+test("mergeLessonsIntoAgentsContent de-duplicates conservative fuzzy matches", () => {
+	const existing = [
+		"# Team Rules",
+		"",
+		"## Lessons",
+		"",
+		"- Capture lessons close to the modified auth module and keep them concise.",
+	].join("\n");
+
+	const merged = mergeLessonsIntoAgentsContent(existing, [
+		"Capture lessons close to the modified auth module and keep them concise always.",
+	]);
+
+	assert.equal(merged.addedCount, 0);
+});
+
+test("mergeLessonsIntoAgentsContent keeps only locally non-duplicate lessons", () => {
+	const existing = [
+		"# Team Rules",
+		"",
+		"## Lessons",
+		"",
+		"- Capture lessons close to the modified auth module and keep them concise.",
+	].join("\n");
+
+	const merged = mergeLessonsIntoAgentsContent(existing, [
+		"Document auth incident mitigations with explicit follow-up owners.",
+	]);
+
+	assert.equal(merged.addedCount, 1);
+	assert.ok(
+		merged.content.includes(
+			"- Document auth incident mitigations with explicit follow-up owners.",
+		),
+	);
+});
+
 test("resolveNearestAgentsPathForModifiedFile prefers nearest existing AGENTS", () => {
 	const root = "/repo";
 	const modifiedFile = "/repo/src/someproject/auth/service.ts";

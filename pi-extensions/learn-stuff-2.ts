@@ -14,6 +14,9 @@ const LESSONS_BLOCK_LABEL = "★ Lessons";
 const LESSONS_BLOCK_DIVIDER = "─────────────────────────────────────────────────";
 const SHOW_LESSONS_MESSAGE_TYPE = "learn-stuff-2-show-lessons";
 const SHOW_LESSONS_MAX_CHARS = 12_000;
+const LESSONS_FUZZY_JACCARD_THRESHOLD = 0.86;
+const LESSONS_MIN_FUZZY_TOKENS = 4;
+const LESSONS_MIN_FUZZY_INTERSECTION = 3;
 const SKIPPED_DIRECTORIES = new Set([
 	".git",
 	".jj",
@@ -25,6 +28,37 @@ const SKIPPED_DIRECTORIES = new Set([
 	".next",
 	".nuxt",
 ]);
+const LESSON_STOPWORDS = new Set([
+	"a",
+	"an",
+	"and",
+	"are",
+	"as",
+	"at",
+	"be",
+	"by",
+	"for",
+	"from",
+	"in",
+	"into",
+	"is",
+	"it",
+	"of",
+	"on",
+	"or",
+	"that",
+	"the",
+	"their",
+	"them",
+	"these",
+	"this",
+	"those",
+	"to",
+	"with",
+	"without",
+	"each",
+	"per",
+]);
 
 type AgentEndMessageLike = {
 	role?: string;
@@ -34,6 +68,12 @@ type AgentEndMessageLike = {
 type LessonsByFile = {
 	path: string;
 	sections: string[];
+};
+
+type LessonSignature = {
+	normalized: string;
+	canonicalKey: string;
+	tokens: string[];
 };
 
 export const LEARN_STUFF_2_ADDITIONAL_CONTEXT = `${LEARN_STUFF_2_MODE_SENTINEL}, where you should include a concise lessons block alongside your normal response.
@@ -57,15 +97,92 @@ function normalizeLesson(lesson: string): string {
 	return normalizeWhitespace(stripWrappingBackticks(lesson).replace(/^[-*]\s+/, ""));
 }
 
+function stemLessonToken(token: string): string {
+	if (token.length > 5 && token.endsWith("ing")) {
+		return token.slice(0, -3);
+	}
+	if (token.length > 4 && token.endsWith("ed")) {
+		return token.slice(0, -2);
+	}
+	if (token.length > 3 && token.endsWith("s")) {
+		return token.slice(0, -1);
+	}
+	return token;
+}
+
+function canonicalTokens(lesson: string): string[] {
+	const rawTokens = lesson
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, " ")
+		.split(/\s+/)
+		.map((token) => token.trim())
+		.filter((token) => token.length > 0)
+		.map(stemLessonToken)
+		.filter((token) => token.length > 1)
+		.filter((token) => !LESSON_STOPWORDS.has(token));
+
+	return [...new Set(rawTokens)].sort((left, right) => left.localeCompare(right));
+}
+
+function buildLessonSignature(lesson: string): LessonSignature {
+	const normalized = normalizeLesson(lesson);
+	const tokens = canonicalTokens(normalized);
+	return {
+		normalized,
+		canonicalKey: tokens.join(" "),
+		tokens,
+	};
+}
+
+function jaccardSimilarity(leftTokens: string[], rightTokens: string[]): number {
+	if (leftTokens.length === 0 || rightTokens.length === 0) return 0;
+
+	const rightSet = new Set(rightTokens);
+	let intersection = 0;
+	for (const token of leftTokens) {
+		if (rightSet.has(token)) intersection++;
+	}
+
+	const union = leftTokens.length + rightTokens.length - intersection;
+	if (union <= 0) return 0;
+	return intersection / union;
+}
+
+function isFuzzyDuplicate(left: LessonSignature, right: LessonSignature): boolean {
+	if (left.tokens.length < LESSONS_MIN_FUZZY_TOKENS) return false;
+	if (right.tokens.length < LESSONS_MIN_FUZZY_TOKENS) return false;
+
+	const rightSet = new Set(right.tokens);
+	let intersection = 0;
+	for (const token of left.tokens) {
+		if (rightSet.has(token)) intersection++;
+	}
+
+	if (intersection < LESSONS_MIN_FUZZY_INTERSECTION) return false;
+	return jaccardSimilarity(left.tokens, right.tokens) >= LESSONS_FUZZY_JACCARD_THRESHOLD;
+}
+
+function areLessonsEquivalent(left: LessonSignature, right: LessonSignature): boolean {
+	if (!left.normalized || !right.normalized) return false;
+	if (left.normalized === right.normalized) return true;
+	if (left.canonicalKey.length > 0 && left.canonicalKey === right.canonicalKey) {
+		return true;
+	}
+	return isFuzzyDuplicate(left, right);
+}
+
 function dedupeLessons(lessons: string[]): string[] {
-	const seen = new Set<string>();
+	const seen: LessonSignature[] = [];
 	const unique: string[] = [];
 
 	for (const lesson of lessons) {
-		const normalized = normalizeLesson(lesson);
-		if (!normalized || seen.has(normalized)) continue;
-		seen.add(normalized);
-		unique.push(normalized);
+		const signature = buildLessonSignature(lesson);
+		if (!signature.normalized) continue;
+		if (seen.some((existing) => areLessonsEquivalent(signature, existing))) {
+			continue;
+		}
+		seen.push(signature);
+		unique.push(signature.normalized);
 	}
 
 	return unique;
@@ -200,15 +317,17 @@ export function extractLessonsSectionsFromAgentsContent(content: string): string
 	return sections;
 }
 
-function collectLessonsInSectionLines(sectionLines: string[]): Set<string> {
-	const existing = new Set<string>();
+function collectLessonSignaturesInSectionLines(sectionLines: string[]): LessonSignature[] {
+	const existing: LessonSignature[] = [];
 
 	for (const line of sectionLines) {
 		const trimmed = line.trim();
 		if (!trimmed) continue;
-		const cleaned = trimmed.replace(/^[-*]\s+/, "");
-		const normalized = normalizeLesson(cleaned);
-		if (normalized) existing.add(normalized);
+		const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+		if (!bulletMatch) continue;
+		const signature = buildLessonSignature(bulletMatch[1]);
+		if (!signature.normalized) continue;
+		existing.push(signature);
 	}
 
 	return existing;
@@ -235,8 +354,20 @@ export function mergeLessonsIntoAgentsContent(
 	}
 
 	const sectionLines = lines.slice(sectionBounds.headingIndex + 1, sectionBounds.sectionEnd);
-	const existingLessons = collectLessonsInSectionLines(sectionLines);
-	const lessonsToAdd = uniqueLessons.filter((lesson) => !existingLessons.has(lesson));
+	const existingLessons = collectLessonSignaturesInSectionLines(sectionLines);
+	const lessonsToAdd: string[] = [];
+
+	for (const lesson of uniqueLessons) {
+		const signature = buildLessonSignature(lesson);
+		if (!signature.normalized) continue;
+
+		if (existingLessons.some((existing) => areLessonsEquivalent(signature, existing))) {
+			continue;
+		}
+
+		existingLessons.push(signature);
+		lessonsToAdd.push(signature.normalized);
+	}
 
 	if (lessonsToAdd.length === 0) {
 		return { content: existingContent, addedCount: 0 };
