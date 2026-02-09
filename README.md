@@ -55,7 +55,6 @@ This is my Agent Harness configuration. Clone it to `~/.config/agents` and symli
 | `│  ├─ status-line.ts`              | Shows persistent footer status updates across turns.               |
 | `│  ├─ todo.ts`                     | Adds branch-aware todos plus a `/todos` viewer.                    |
 | `├─ skills/`                        | Optional skill packages for specialized capabilities.              |
-| `│  ├─ AGENTS.md`                   | Skill-maintenance lessons and doc hygiene notes.                   |
 | `│  ├─ dev-browser/`                | Persistent browser automation workflows and helpers.               |
 | `│  ├─ docx/`                       | Creates, edits, and analyzes Word `.docx` documents.               |
 | `│  ├─ frontend-design/`            | Crafts distinctive, production-grade frontend interfaces.          |

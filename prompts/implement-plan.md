@@ -3,7 +3,7 @@ description: Implement a pre-created plan
 ---
 Use the subagent tool with the chain parameter to execute this workflow:
 
-1. Read the plan / todo list
+1. Read the plan / todo list shared: $@
 2. Identify parallelizable vs sequential tasks in the plan
 3. Identify **one task** that should be started. If there is no task left, congratulations, move to step 8
 4. Rewrite the task as a well-defined task, if it is not already in this shape. Use the following template for defining the task:
