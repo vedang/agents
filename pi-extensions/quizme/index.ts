@@ -510,25 +510,28 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
   const gradingPayload = parseGradingPayload(gradingText);
   await logSnapshot({ gradingPayload });
 
-  const gradingMarkdown = gradingPayload
-    ? formatGradingResultsMarkdown(quizPayload, gradingPayload)
-    : [
-        formatGradingResultsMarkdown(quizPayload, {
-          results: quizPayload.questions.map((question) => ({
-            id: question.id,
-            verdict: "Ungraded",
-            explanation:
-              "Could not parse the grader output into structured results. See raw grader output below.",
-          })),
-        }),
-        "",
-        "---",
-        "",
-        "### Raw grader output",
-        gradingText,
-      ].join("\n");
+  let gradingMarkdown = "";
+  if (gradingPayload) {
+    gradingMarkdown = formatGradingResultsMarkdown(quizPayload, gradingPayload);
+  } else {
+    const ungradedSummary = formatGradingResultsMarkdown(quizPayload, {
+      results: quizPayload.questions.map((question) => ({
+        id: question.id,
+        verdict: "Ungraded",
+        explanation:
+          "Could not parse the grader output into structured results. See raw grader output below.",
+      })),
+    });
 
-  if (!gradingPayload) {
+    gradingMarkdown = [
+      ungradedSummary,
+      "",
+      "---",
+      "",
+      "### Raw grader output",
+      gradingText,
+    ].join("\n");
+
     ctx.ui.notify(
       "Grading output format was unexpected; showing fallback results",
       "warning",
