@@ -2,9 +2,9 @@
 
 This is my Agent Harness configuration. Tell your agent to clone it to `~/.config/agents` and symlink the parts you want into your harness.
 
-## Example commands for using unravel-team/agents configuration with the Pi Coding Agent
+## Example commands for using agents configuration with the Pi Coding Agent
 
-1. `git clone https://github.com/unravel-team/agents ~/.config/agents`
+1. `git clone https://github.com/vedang/agents ~/.config/agents`
 2. `ln -s ~/.pi/agent/AGENTS.md ~/.config/agents/AGENTS.md`
 3. `ln -s ~/.pi/agent/APPEND_SYSTEM.md ~/.config/agents/APPEND_SYSTEM.md`
 4. `ln -s ~/.pi/agent/agents ~/.config/agents/agents`
