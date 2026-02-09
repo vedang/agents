@@ -16,7 +16,9 @@ import { getQuizmeModelInfo } from "./model";
 import {
   buildGradingPrompt,
   buildQuizPrompt,
+  formatGradingResultsMarkdown,
   formatQuestionMarkdown,
+  parseGradingPayload,
   parseQuizPayload,
 } from "./quiz";
 
@@ -46,7 +48,7 @@ const QUIZ_PROMPT_PATH = join(
   "prompt.md",
 );
 const GRADING_SYSTEM_PROMPT =
-  "You are a quiz grader who only checks answer correctness.";
+  "You are a quiz grader who only checks answer correctness and returns JSON in the requested grading schema.";
 const TOOL_OUTPUT_MAX_LINES = 40;
 const TOOL_OUTPUT_MAX_CHARS = 4000;
 const THINKING_MAX_LINES = 12;
@@ -505,9 +507,39 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     return;
   }
 
+  const gradingPayload = parseGradingPayload(gradingText);
+  await logSnapshot({ gradingPayload });
+
+  const gradingMarkdown = gradingPayload
+    ? formatGradingResultsMarkdown(quizPayload, gradingPayload)
+    : [
+        formatGradingResultsMarkdown(quizPayload, {
+          results: quizPayload.questions.map((question) => ({
+            id: question.id,
+            verdict: "Ungraded",
+            explanation:
+              "Could not parse the grader output into structured results. See raw grader output below.",
+          })),
+        }),
+        "",
+        "---",
+        "",
+        "### Raw grader output",
+        gradingText,
+      ].join("\n");
+
+  if (!gradingPayload) {
+    ctx.ui.notify(
+      "Grading output format was unexpected; showing fallback results",
+      "warning",
+    );
+  }
+
+  await logSnapshot({ gradingMarkdown });
+
   await showMarkdownPanel(
     "Quiz Results",
-    gradingText,
+    gradingMarkdown,
     ctx,
     "Enter or Esc to close",
   );
