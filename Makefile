@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
-TEST_FILES := $(shell find pi-extensions -type f \( -path "*/__tests__/*.ts" -o -path "*/__tests__/*.tsx" -o -path "*/__tests__/*.mts" -o -path "*/__tests__/*.cts" \))
 BIOME := bunx --yes @biomejs/biome
 PI_EXT_TS_FILES := $(shell find pi-extensions -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \))
+TEST_FILES := $(shell find pi-extensions -type f -path "*/__tests__/*.test.ts")
 
 .PHONY: help test check format
 
