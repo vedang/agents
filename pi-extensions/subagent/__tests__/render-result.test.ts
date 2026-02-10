@@ -25,3 +25,10 @@ test("renderResult uses runtime model labels rather than requested fallbacks", (
 	assert.equal(source.includes("getRuntimeModelLabel"), true);
 	assert.equal(source.includes("getPreferredModelLabel"), false);
 });
+
+test("renderResult collapsed view includes diagnostics line", () => {
+	const source = readFileSync(sourcePath, "utf8");
+
+	assert.equal(source.includes("Diagnostics: statusCode="), true);
+	assert.equal(source.includes("retryable="), true);
+});

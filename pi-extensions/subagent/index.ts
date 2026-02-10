@@ -899,6 +899,11 @@ export default function (pi: ExtensionAPI) {
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
 				text = appendModelInfoToText(text, r);
+				const diagnosticsStatusCode = r.diagnostics?.statusCode;
+				const diagnosticsRetryable = r.diagnostics?.retryable;
+				if (diagnosticsStatusCode !== undefined || diagnosticsRetryable !== undefined) {
+					text += `\n${theme.fg("dim", `Diagnostics: statusCode=${diagnosticsStatusCode ?? "n/a"} retryable=${diagnosticsRetryable ?? "n/a"}`)}`;
+				}
 				return new Text(text, 0, 0);
 			}
 
