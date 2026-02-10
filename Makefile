@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := help
 
-TEST_FILES := pi-extensions/__tests__/*.ts pi-extensions/*/__tests__/*.ts pi-extensions/**/__tests__/*.ts
+TEST_FILES := $(shell find pi-extensions -type f \( -path "*/__tests__/*.ts" -o -path "*/__tests__/*.tsx" -o -path "*/__tests__/*.mts" -o -path "*/__tests__/*.cts" \))
+BIOME := bunx --yes @biomejs/biome
+PI_EXT_TS_FILES := $(shell find pi-extensions -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \))
 
 .PHONY: help test check format
 
@@ -10,8 +12,8 @@ help: ## Show available targets
 test: ## Run repository tests
 	@bunx --yes tsx --test $(TEST_FILES)
 
-check: ## Run repository checks (currently no-op)
-	@echo "No repository-wide linter configured yet"
+check: ## Lint TypeScript in pi-extensions using Biome
+	@$(BIOME) lint --files-ignore-unknown=true $(PI_EXT_TS_FILES)
 
-format: ## Run formatter (currently no-op)
-	@echo "No repository-wide formatter configured yet"
+format: ## Format TypeScript in pi-extensions using Biome
+	@$(BIOME) format --write --files-ignore-unknown=true $(PI_EXT_TS_FILES)
