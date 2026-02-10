@@ -165,6 +165,18 @@ interface SubagentDetails {
 	results: SingleResult[];
 }
 
+function createEmptyUsageStats(): UsageStats {
+	return {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		cost: 0,
+		contextTokens: 0,
+		turns: 0,
+	};
+}
+
 function getFinalOutput(messages: Message[]): string {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const msg = messages[i];
@@ -262,7 +274,7 @@ async function runSingleAgent(
 			exitCode: 1,
 			messages: [],
 			stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
-			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+			usage: createEmptyUsageStats(),
 			step,
 		};
 	}
@@ -277,7 +289,7 @@ async function runSingleAgent(
 			exitCode: 1,
 			messages: [],
 			stderr: `Agent ${agentName}: ${modelArgs.error}`,
-			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+			usage: createEmptyUsageStats(),
 			requestedProvider: agent.provider?.trim() || undefined,
 			requestedModel: agent.model?.trim() || undefined,
 			step,
@@ -296,7 +308,7 @@ async function runSingleAgent(
 		exitCode: 0,
 		messages: [],
 		stderr: "",
-		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+		usage: createEmptyUsageStats(),
 		requestedProvider: modelArgs.requested?.provider,
 		requestedModel: modelArgs.requested?.model,
 		step,
@@ -595,7 +607,7 @@ export default function (pi: ExtensionAPI) {
 						exitCode: -1, // -1 = still running
 						messages: [],
 						stderr: "",
-						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+						usage: createEmptyUsageStats(),
 					};
 				}
 
