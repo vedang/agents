@@ -728,6 +728,24 @@ export default function (pi: ExtensionAPI) {
 				return text.trimEnd();
 			};
 
+			const addModelInfoToContainer = (container: Container, result: SingleResult, withSpacer = false) => {
+				const usageStr = formatUsageStats(result.usage, getResultModelLabel(result));
+				const mismatchText = getModelMismatchText(result);
+				if (!usageStr && !mismatchText) return;
+				if (withSpacer) container.addChild(new Spacer(1));
+				if (usageStr) container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
+				if (mismatchText)
+					container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
+			};
+
+			const appendModelInfoToText = (text: string, result: SingleResult) => {
+				const usageStr = formatUsageStats(result.usage, getResultModelLabel(result));
+				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
+				const mismatchText = getModelMismatchText(result);
+				if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
+				return text;
+			};
+
 			if (details.mode === "single" && details.results.length === 1) {
 				const r = details.results[0];
 				const isError = r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted";
