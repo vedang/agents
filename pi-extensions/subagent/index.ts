@@ -23,6 +23,15 @@ import { type ExtensionAPI, getMarkdownTheme } from "@mariozechner/pi-coding-age
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
+import {
+	buildFailureDiagnostics,
+	clipText,
+	type DiagnosticEventSnapshot,
+	type SubagentFailureDiagnostics,
+	type ToolCallDiagnostic,
+	type ToolResultDiagnostic,
+	pushRecentEvent,
+} from "./diagnostics.js";
 import { buildModelCliArgs, getModelMismatch, getRuntimeModelLabel } from "./model-routing.js";
 import { buildSubagentCallText } from "./render-call.js";
 
@@ -155,6 +164,7 @@ interface SingleResult {
 	runtimeModel?: string;
 	stopReason?: string;
 	errorMessage?: string;
+	diagnostics?: SubagentFailureDiagnostics;
 	step?: number;
 }
 
@@ -220,6 +230,26 @@ function getModelMismatchText(result: SingleResult): string | null {
 	});
 	if (!mismatch) return null;
 	return `requested ${mismatch.requested} but ran ${mismatch.actual}`;
+}
+
+function normalizePreviewText(value: string, maxChars = 220): string {
+	return clipText(value.replace(/\s+/g, " "), maxChars);
+}
+
+function getMessagePreview(message: Message): string | undefined {
+	for (const part of message.content) {
+		if (part.type === "text") return normalizePreviewText(part.text);
+		if (part.type === "thinking") return normalizePreviewText(part.thinking || "");
+		if (part.type === "toolCall") return normalizePreviewText(`toolCall:${part.name}`);
+	}
+	return undefined;
+}
+
+function getToolResultPreview(message: Message): string | undefined {
+	if (message.role !== "toolResult") return undefined;
+	const firstPart = message.content[0];
+	if (!firstPart || firstPart.type !== "text") return undefined;
+	return normalizePreviewText(firstPart.text);
 }
 
 async function mapWithConcurrencyLimit<TIn, TOut>(
@@ -314,6 +344,13 @@ async function runSingleAgent(
 		step,
 	};
 
+	let parsedEventCount = 0;
+	let messageEndCount = 0;
+	let toolResultEndCount = 0;
+	const recentEvents: DiagnosticEventSnapshot[] = [];
+	let lastToolCall: ToolCallDiagnostic | undefined;
+	let lastToolResult: ToolResultDiagnostic | undefined;
+
 	const emitUpdate = () => {
 		if (onUpdate) {
 			onUpdate({
@@ -347,9 +384,20 @@ async function runSingleAgent(
 					return;
 				}
 
-				if (event.type === "message_end" && event.message) {
+				parsedEventCount++;
+				const eventType = typeof event.type === "string" ? event.type : "unknown";
+
+				if (eventType === "message_end" && event.message) {
+					messageEndCount++;
 					const msg = event.message as Message;
 					currentResult.messages.push(msg);
+					pushRecentEvent(recentEvents, {
+						type: eventType,
+						timestamp: event.timestamp ?? msg.timestamp,
+						role: msg.role,
+						stopReason: msg.role === "assistant" ? msg.stopReason : undefined,
+						preview: getMessagePreview(msg),
+					});
 
 					if (msg.role === "assistant") {
 						currentResult.usage.turns++;
@@ -367,14 +415,49 @@ async function runSingleAgent(
 						if (runtimeProvider) currentResult.runtimeProvider = runtimeProvider;
 						if (msg.stopReason) currentResult.stopReason = msg.stopReason;
 						if (msg.errorMessage) currentResult.errorMessage = msg.errorMessage;
+
+						for (const part of msg.content) {
+							if (part.type === "toolCall") {
+								const argsPreview = clipText(JSON.stringify(part.arguments ?? {}), 320);
+								lastToolCall = {
+									name: part.name,
+									argumentsPreview: argsPreview,
+								};
+							}
+						}
 					}
 					emitUpdate();
+					return;
 				}
 
-				if (event.type === "tool_result_end" && event.message) {
-					currentResult.messages.push(event.message as Message);
+				if (eventType === "tool_result_end" && event.message) {
+					toolResultEndCount++;
+					const msg = event.message as Message;
+					currentResult.messages.push(msg);
+					const preview = getToolResultPreview(msg);
+					if (msg.role === "toolResult") {
+						lastToolResult = {
+							toolName: msg.toolName,
+							isError: msg.isError,
+							preview,
+						};
+					}
+					pushRecentEvent(recentEvents, {
+						type: eventType,
+						timestamp: event.timestamp ?? msg.timestamp,
+						role: msg.role,
+						toolName: msg.role === "toolResult" ? msg.toolName : undefined,
+						isError: msg.role === "toolResult" ? msg.isError : undefined,
+						preview,
+					});
 					emitUpdate();
+					return;
 				}
+
+				pushRecentEvent(recentEvents, {
+					type: eventType,
+					timestamp: event.timestamp,
+				});
 			};
 
 			proc.stdout.on("data", (data) => {
@@ -411,6 +494,29 @@ async function runSingleAgent(
 		});
 
 		currentResult.exitCode = exitCode;
+		const shouldCaptureDiagnostics =
+			currentResult.exitCode !== 0 ||
+			currentResult.stopReason === "error" ||
+			currentResult.stopReason === "aborted" ||
+			currentResult.stderr.trim().length > 0;
+		if (shouldCaptureDiagnostics) {
+			currentResult.diagnostics = buildFailureDiagnostics({
+				errorMessage: currentResult.errorMessage,
+				stopReason: currentResult.stopReason,
+				exitCode: currentResult.exitCode,
+				requestedProvider: currentResult.requestedProvider,
+				requestedModel: currentResult.requestedModel,
+				runtimeProvider: currentResult.runtimeProvider,
+				runtimeModel: currentResult.runtimeModel,
+				parsedEventCount,
+				messageEndCount,
+				toolResultEndCount,
+				recentEvents,
+				lastToolCall,
+				lastToolResult,
+				stderr: currentResult.stderr,
+			});
+		}
 		if (wasAborted) throw new Error("Subagent was aborted");
 		return currentResult;
 	} finally {
