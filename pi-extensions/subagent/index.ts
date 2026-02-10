@@ -762,13 +762,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 					}
-					const usageStr = formatUsageStats(r.usage, getResultModelLabel(r));
-					const mismatchText = getModelMismatchText(r);
-					if (usageStr || mismatchText) {
-						container.addChild(new Spacer(1));
-						if (usageStr) container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
-						if (mismatchText) container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
-					}
+					addModelInfoToContainer(container, r, true);
 					return container;
 				}
 
@@ -780,10 +774,7 @@ export default function (pi: ExtensionAPI) {
 					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
-				const usageStr = formatUsageStats(r.usage, getResultModelLabel(r));
-				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
-				const mismatchText = getModelMismatchText(r);
-				if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
+				text = appendModelInfoToText(text, r);
 				return new Text(text, 0, 0);
 			}
 
@@ -850,11 +841,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const stepUsage = formatUsageStats(r.usage, getResultModelLabel(r));
-						if (stepUsage) container.addChild(new Text(theme.fg("dim", stepUsage), 0, 0));
-						const mismatchText = getModelMismatchText(r);
-						if (mismatchText)
-							container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
+						addModelInfoToContainer(container, r);
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
@@ -877,10 +864,7 @@ export default function (pi: ExtensionAPI) {
 					text += `\n\n${theme.fg("muted", `─── Step ${r.step}: `)}${theme.fg("accent", r.agent)} ${rIcon}`;
 					if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
-					const stepUsage = formatUsageStats(r.usage, getResultModelLabel(r));
-					if (stepUsage) text += `\n${theme.fg("dim", stepUsage)}`;
-					const mismatchText = getModelMismatchText(r);
-					if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
+					text = appendModelInfoToText(text, r);
 				}
 				const usageStr = formatUsageStats(aggregateUsage(details.results));
 				if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
@@ -941,11 +925,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const taskUsage = formatUsageStats(r.usage, getResultModelLabel(r));
-						if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
-						const mismatchText = getModelMismatchText(r);
-						if (mismatchText)
-							container.addChild(new Text(theme.fg("warning", `Model mismatch: ${mismatchText}`), 0, 0));
+						addModelInfoToContainer(container, r);
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
@@ -971,10 +951,7 @@ export default function (pi: ExtensionAPI) {
 						text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
 					if (r.exitCode !== -1) {
-						const taskUsage = formatUsageStats(r.usage, getResultModelLabel(r));
-						if (taskUsage) text += `\n${theme.fg("dim", taskUsage)}`;
-						const mismatchText = getModelMismatchText(r);
-						if (mismatchText) text += `\n${theme.fg("warning", `Model mismatch: ${mismatchText}`)}`;
+						text = appendModelInfoToText(text, r);
 					}
 				}
 				if (!isRunning) {
