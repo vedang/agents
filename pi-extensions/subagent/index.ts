@@ -232,6 +232,13 @@ function getModelMismatchText(result: SingleResult): string | null {
 	return `requested ${mismatch.requested} but ran ${mismatch.actual}`;
 }
 
+function getDiagnosticsSummaryText(diagnostics?: SubagentFailureDiagnostics): string | null {
+	const statusCode = diagnostics?.statusCode;
+	const retryable = diagnostics?.retryable;
+	if (statusCode === undefined && retryable === undefined) return null;
+	return `Diagnostics: statusCode=${statusCode ?? "n/a"} retryable=${retryable ?? "n/a"}`;
+}
+
 function normalizePreviewText(value: string, maxChars = 220): string {
 	return clipText(value.replace(/\s+/g, " "), maxChars);
 }
@@ -899,11 +906,8 @@ export default function (pi: ExtensionAPI) {
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
 				text = appendModelInfoToText(text, r);
-				const diagnosticsStatusCode = r.diagnostics?.statusCode;
-				const diagnosticsRetryable = r.diagnostics?.retryable;
-				if (diagnosticsStatusCode !== undefined || diagnosticsRetryable !== undefined) {
-					text += `\n${theme.fg("dim", `Diagnostics: statusCode=${diagnosticsStatusCode ?? "n/a"} retryable=${diagnosticsRetryable ?? "n/a"}`)}`;
-				}
+				const diagnosticsText = getDiagnosticsSummaryText(r.diagnostics);
+				if (diagnosticsText) text += `\n${theme.fg("dim", diagnosticsText)}`;
 				return new Text(text, 0, 0);
 			}
 
