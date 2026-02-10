@@ -76,11 +76,14 @@ export function parseProviderError(errorMessage?: string): {
 	if (!errorMessage) return {};
 
 	const statusMatch = errorMessage.match(/\b([1-5]\d{2})\b/);
-	const statusCode = statusMatch ? Number.parseInt(statusMatch[1], 10) : undefined;
+	const statusCode = statusMatch
+		? Number.parseInt(statusMatch[1], 10)
+		: undefined;
 	const bodyMatch = errorMessage.match(/\(([^)]*)\)/);
 	const bodyDescriptor = bodyMatch?.[1]?.trim();
 
-	const hasNoBody = bodyDescriptor?.toLowerCase() === "no body" ? true : undefined;
+	const hasNoBody =
+		bodyDescriptor?.toLowerCase() === "no body" ? true : undefined;
 
 	let retryable: boolean | undefined;
 	if (statusCode !== undefined) {
@@ -95,7 +98,10 @@ export function parseProviderError(errorMessage?: string): {
 	};
 }
 
-export function stderrTail(stderr: string | undefined, maxChars = MAX_STDERR_TAIL_CHARS): string | undefined {
+export function stderrTail(
+	stderr: string | undefined,
+	maxChars = MAX_STDERR_TAIL_CHARS,
+): string | undefined {
 	if (!stderr) return undefined;
 	if (stderr.length <= maxChars) return stderr;
 	return `…${stderr.slice(stderr.length - maxChars)}`;
@@ -112,7 +118,9 @@ export function pushRecentEvent(
 	}
 }
 
-export function buildFailureDiagnostics(params: BuildFailureDiagnosticsParams): SubagentFailureDiagnostics {
+export function buildFailureDiagnostics(
+	params: BuildFailureDiagnosticsParams,
+): SubagentFailureDiagnostics {
 	const providerError = parseProviderError(params.errorMessage);
 	return {
 		capturedAt: new Date().toISOString(),

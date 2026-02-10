@@ -14,7 +14,10 @@ export interface ModelRoutingSnapshot {
 	runtimeModel?: string;
 }
 
-function formatModelLabel(provider: string | undefined, model: string | undefined): string | null {
+function formatModelLabel(
+	provider: string | undefined,
+	model: string | undefined,
+): string | null {
 	if (!model) return null;
 	return provider ? `${provider}/${model}` : model;
 }
@@ -57,7 +60,10 @@ export function buildModelCliArgs(
 	}
 
 	if (!provider && model.includes("/")) {
-		return { ok: false, error: buildNamespacedModelWithoutProviderError(model) };
+		return {
+			ok: false,
+			error: buildNamespacedModelWithoutProviderError(model),
+		};
 	}
 
 	if (provider) {
@@ -75,17 +81,33 @@ export function buildModelCliArgs(
 	};
 }
 
-export function getRuntimeModelLabel(snapshot: ModelRoutingSnapshot): string | undefined {
-	return formatModelLabel(snapshot.runtimeProvider, snapshot.runtimeModel) ?? undefined;
+export function getRuntimeModelLabel(
+	snapshot: ModelRoutingSnapshot,
+): string | undefined {
+	return (
+		formatModelLabel(snapshot.runtimeProvider, snapshot.runtimeModel) ??
+		undefined
+	);
 }
 
-export function getModelMismatch(snapshot: ModelRoutingSnapshot): { requested: string; actual: string } | null {
-	const requestedLabel = formatModelLabel(snapshot.requestedProvider, snapshot.requestedModel);
-	const actualLabel = formatModelLabel(snapshot.runtimeProvider, snapshot.runtimeModel);
+export function getModelMismatch(
+	snapshot: ModelRoutingSnapshot,
+): { requested: string; actual: string } | null {
+	const requestedLabel = formatModelLabel(
+		snapshot.requestedProvider,
+		snapshot.requestedModel,
+	);
+	const actualLabel = formatModelLabel(
+		snapshot.runtimeProvider,
+		snapshot.runtimeModel,
+	);
 	if (!requestedLabel || !actualLabel) return null;
 
 	if (snapshot.requestedProvider) {
-		if (snapshot.requestedProvider === snapshot.runtimeProvider && snapshot.requestedModel === snapshot.runtimeModel) {
+		if (
+			snapshot.requestedProvider === snapshot.runtimeProvider &&
+			snapshot.requestedModel === snapshot.runtimeModel
+		) {
 			return null;
 		}
 		return { requested: requestedLabel, actual: actualLabel };

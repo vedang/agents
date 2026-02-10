@@ -36,7 +36,18 @@ import { type Static, Type } from "@sinclair/typebox";
 
 const PROVIDER = "google-antigravity";
 
-const ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const;
+const ASPECT_RATIOS = [
+	"1:1",
+	"2:3",
+	"3:2",
+	"3:4",
+	"4:3",
+	"4:5",
+	"5:4",
+	"9:16",
+	"16:9",
+	"21:9",
+] as const;
 
 type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
@@ -47,7 +58,8 @@ const DEFAULT_SAVE_MODE = "none";
 const SAVE_MODES = ["none", "project", "global", "custom"] as const;
 type SaveMode = (typeof SAVE_MODES)[number];
 
-const ANTIGRAVITY_ENDPOINT = "https://daily-cloudcode-pa.sandbox.googleapis.com";
+const ANTIGRAVITY_ENDPOINT =
+	"https://daily-cloudcode-pa.sandbox.googleapis.com";
 
 const ANTIGRAVITY_HEADERS = {
 	"User-Agent": "antigravity/1.15.8 darwin/arm64",
@@ -66,14 +78,16 @@ const TOOL_PARAMS = Type.Object({
 	prompt: Type.String({ description: "Image description." }),
 	model: Type.Optional(
 		Type.String({
-			description: "Image model id (e.g., gemini-3-pro-image, imagen-3). Default: gemini-3-pro-image.",
+			description:
+				"Image model id (e.g., gemini-3-pro-image, imagen-3). Default: gemini-3-pro-image.",
 		}),
 	),
 	aspectRatio: Type.Optional(StringEnum(ASPECT_RATIOS)),
 	save: Type.Optional(StringEnum(SAVE_MODES)),
 	saveDir: Type.Optional(
 		Type.String({
-			description: "Directory to save image when save=custom. Defaults to PI_IMAGE_SAVE_DIR if set.",
+			description:
+				"Directory to save image when save=custom. Defaults to PI_IMAGE_SAVE_DIR if set.",
 		}),
 	),
 });
@@ -160,10 +174,14 @@ function parseOAuthCredentials(raw: string): ParsedCredentials {
 	try {
 		parsed = JSON.parse(raw) as { token?: string; projectId?: string };
 	} catch {
-		throw new Error("Invalid Google OAuth credentials. Run /login to re-authenticate.");
+		throw new Error(
+			"Invalid Google OAuth credentials. Run /login to re-authenticate.",
+		);
 	}
 	if (!parsed.token || !parsed.projectId) {
-		throw new Error("Missing token or projectId in Google OAuth credentials. Run /login.");
+		throw new Error(
+			"Missing token or projectId in Google OAuth credentials. Run /login.",
+		);
 	}
 	return { accessToken: parsed.token, projectId: parsed.projectId };
 }
@@ -182,8 +200,12 @@ function readConfigFile(path: string): ExtensionConfig {
 }
 
 function loadConfig(cwd: string): ExtensionConfig {
-	const globalConfig = readConfigFile(join(homedir(), ".pi", "agent", "extensions", "antigravity-image-gen.json"));
-	const projectConfig = readConfigFile(join(cwd, ".pi", "extensions", "antigravity-image-gen.json"));
+	const globalConfig = readConfigFile(
+		join(homedir(), ".pi", "agent", "extensions", "antigravity-image-gen.json"),
+	);
+	const projectConfig = readConfigFile(
+		join(cwd, ".pi", "extensions", "antigravity-image-gen.json"),
+	);
 	return { ...globalConfig, ...projectConfig };
 }
 
@@ -191,7 +213,10 @@ function resolveSaveConfig(params: ToolParams, cwd: string): SaveConfig {
 	const config = loadConfig(cwd);
 	const envMode = (process.env.PI_IMAGE_SAVE_MODE || "").toLowerCase();
 	const paramMode = params.save;
-	const mode = (paramMode || envMode || config.save || DEFAULT_SAVE_MODE) as SaveMode;
+	const mode = (paramMode ||
+		envMode ||
+		config.save ||
+		DEFAULT_SAVE_MODE) as SaveMode;
 
 	if (!SAVE_MODES.includes(mode)) {
 		return { mode: DEFAULT_SAVE_MODE as SaveMode };
@@ -202,11 +227,15 @@ function resolveSaveConfig(params: ToolParams, cwd: string): SaveConfig {
 	}
 
 	if (mode === "global") {
-		return { mode, outputDir: join(homedir(), ".pi", "agent", "generated-images") };
+		return {
+			mode,
+			outputDir: join(homedir(), ".pi", "agent", "generated-images"),
+		};
 	}
 
 	if (mode === "custom") {
-		const dir = params.saveDir || process.env.PI_IMAGE_SAVE_DIR || config.saveDir;
+		const dir =
+			params.saveDir || process.env.PI_IMAGE_SAVE_DIR || config.saveDir;
 		if (!dir || !dir.trim()) {
 			throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
 		}
@@ -224,7 +253,11 @@ function imageExtension(mimeType: string): string {
 	return "png";
 }
 
-async function saveImage(base64Data: string, mimeType: string, outputDir: string): Promise<string> {
+async function saveImage(
+	base64Data: string,
+	mimeType: string,
+	outputDir: string,
+): Promise<string> {
 	await mkdir(outputDir, { recursive: true });
 	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 	const ext = imageExtension(mimeType);
@@ -234,7 +267,12 @@ async function saveImage(base64Data: string, mimeType: string, outputDir: string
 	return filePath;
 }
 
-function buildRequest(prompt: string, model: string, projectId: string, aspectRatio: string): CloudCodeAssistRequest {
+function buildRequest(
+	prompt: string,
+	model: string,
+	projectId: string,
+	aspectRatio: string,
+): CloudCodeAssistRequest {
 	return {
 		project: projectId,
 		model,
@@ -255,9 +293,18 @@ function buildRequest(prompt: string, model: string, projectId: string, aspectRa
 			safetySettings: [
 				{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
 				{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-				{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-				{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-				{ category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_ONLY_HIGH" },
+				{
+					category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+					threshold: "BLOCK_ONLY_HIGH",
+				},
+				{
+					category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+					threshold: "BLOCK_ONLY_HIGH",
+				},
+				{
+					category: "HARM_CATEGORY_CIVIC_INTEGRITY",
+					threshold: "BLOCK_ONLY_HIGH",
+				},
 			],
 		},
 		requestType: "agent",
@@ -336,11 +383,15 @@ async function parseSseForImage(
 }
 
 async function getCredentials(ctx: {
-	modelRegistry: { getApiKeyForProvider: (provider: string) => Promise<string | undefined> };
+	modelRegistry: {
+		getApiKeyForProvider: (provider: string) => Promise<string | undefined>;
+	};
 }): Promise<ParsedCredentials> {
 	const apiKey = await ctx.modelRegistry.getApiKeyForProvider(PROVIDER);
 	if (!apiKey) {
-		throw new Error("Missing Google Antigravity OAuth credentials. Run /login for google-antigravity.");
+		throw new Error(
+			"Missing Google Antigravity OAuth credentials. Run /login for google-antigravity.",
+		);
 	}
 	return parseOAuthCredentials(apiKey);
 }
@@ -357,27 +408,42 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 			const model = params.model || DEFAULT_MODEL;
 			const aspectRatio = params.aspectRatio || DEFAULT_ASPECT_RATIO;
 
-			const requestBody = buildRequest(params.prompt, model, projectId, aspectRatio);
+			const requestBody = buildRequest(
+				params.prompt,
+				model,
+				projectId,
+				aspectRatio,
+			);
 			onUpdate?.({
-				content: [{ type: "text", text: `Requesting image from ${PROVIDER}/${model}...` }],
+				content: [
+					{
+						type: "text",
+						text: `Requesting image from ${PROVIDER}/${model}...`,
+					},
+				],
 				details: { provider: PROVIDER, model, aspectRatio },
 			});
 
-			const response = await fetch(`${ANTIGRAVITY_ENDPOINT}/v1internal:streamGenerateContent?alt=sse`, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Content-Type": "application/json",
-					Accept: "text/event-stream",
-					...ANTIGRAVITY_HEADERS,
+			const response = await fetch(
+				`${ANTIGRAVITY_ENDPOINT}/v1internal:streamGenerateContent?alt=sse`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Content-Type": "application/json",
+						Accept: "text/event-stream",
+						...ANTIGRAVITY_HEADERS,
+					},
+					body: JSON.stringify(requestBody),
+					signal,
 				},
-				body: JSON.stringify(requestBody),
-				signal,
-			});
+			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(`Image request failed (${response.status}): ${errorText}`);
+				throw new Error(
+					`Image request failed (${response.status}): ${errorText}`,
+				);
 			}
 
 			const parsed = await parseSseForImage(response, signal);
@@ -386,12 +452,19 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 			let saveError: string | undefined;
 			if (saveConfig.mode !== "none" && saveConfig.outputDir) {
 				try {
-					savedPath = await saveImage(parsed.image.data, parsed.image.mimeType, saveConfig.outputDir);
+					savedPath = await saveImage(
+						parsed.image.data,
+						parsed.image.mimeType,
+						saveConfig.outputDir,
+					);
 				} catch (error) {
 					saveError = error instanceof Error ? error.message : String(error);
 				}
 			}
-			const summaryParts = [`Generated image via ${PROVIDER}/${model}.`, `Aspect ratio: ${aspectRatio}.`];
+			const summaryParts = [
+				`Generated image via ${PROVIDER}/${model}.`,
+				`Aspect ratio: ${aspectRatio}.`,
+			];
 			if (savedPath) {
 				summaryParts.push(`Saved image to: ${savedPath}`);
 			} else if (saveError) {
@@ -404,9 +477,19 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 			return {
 				content: [
 					{ type: "text", text: summaryParts.join(" ") },
-					{ type: "image", data: parsed.image.data, mimeType: parsed.image.mimeType },
+					{
+						type: "image",
+						data: parsed.image.data,
+						mimeType: parsed.image.mimeType,
+					},
 				],
-				details: { provider: PROVIDER, model, aspectRatio, savedPath, saveMode: saveConfig.mode },
+				details: {
+					provider: PROVIDER,
+					model,
+					aspectRatio,
+					savedPath,
+					saveMode: saveConfig.mode,
+				},
 			};
 		},
 	});

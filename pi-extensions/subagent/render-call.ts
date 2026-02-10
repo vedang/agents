@@ -23,7 +23,10 @@ interface SubagentRenderCallArgs {
 	tasks?: SubagentParallelTask[];
 }
 
-export function buildSubagentCallText(args: SubagentRenderCallArgs, theme: SubagentTheme): string {
+export function buildSubagentCallText(
+	args: SubagentRenderCallArgs,
+	theme: SubagentTheme,
+): string {
 	const scope = args.agentScope ?? "user";
 
 	if (args.chain && args.chain.length > 0) {

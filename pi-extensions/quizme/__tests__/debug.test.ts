@@ -12,191 +12,176 @@ import { QUIZME_MODEL, getQuizmeModelInfo } from "../model";
 const DEBUG_ENV = "PI_QUIZME_DEBUG";
 
 async function withEnv(
-  key: string,
-  value: string | undefined,
-  action: () => Promise<void>,
+	key: string,
+	value: string | undefined,
+	action: () => Promise<void>,
 ): Promise<void> {
-  const previous = process.env[key];
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
+	const previous = process.env[key];
+	if (value === undefined) {
+		delete process.env[key];
+	} else {
+		process.env[key] = value;
+	}
 
-  try {
-    await action();
-  } finally {
-    if (previous === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = previous;
-    }
-  }
+	try {
+		await action();
+	} finally {
+		if (previous === undefined) {
+			delete process.env[key];
+		} else {
+			process.env[key] = previous;
+		}
+	}
 }
 
 function createModel(provider: string, id: string): Model<any> {
-  return { provider, id } as Model<any>;
+	return { provider, id } as Model<any>;
 }
 
 function parseModelSpec(spec: string): { provider: string; id: string } {
-  const [provider, ...rest] = spec.split("/");
-  return { provider, id: rest.join("/") };
+	const [provider, ...rest] = spec.split("/");
+	return { provider, id: rest.join("/") };
 }
 
 test("createQuizmeDebugLogger is disabled by default", async function () {
-  const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
+	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
 
-  try {
-    await withEnv(DEBUG_ENV, undefined, async function () {
-      const logger = createQuizmeDebugLogger({
-        baseDir,
-        identifier: "unit-test",
-      });
+	try {
+		await withEnv(DEBUG_ENV, undefined, async function () {
+			const logger = createQuizmeDebugLogger({
+				baseDir,
+				identifier: "unit-test",
+			});
 
-      await logger.log({ step: "start" });
+			await logger.log({ step: "start" });
 
-      await assert.rejects(stat(logger.filePath), { code: "ENOENT" });
-    });
-  } finally {
-    await rm(baseDir, { recursive: true, force: true });
-  }
+			await assert.rejects(stat(logger.filePath), { code: "ENOENT" });
+		});
+	} finally {
+		await rm(baseDir, { recursive: true, force: true });
+	}
 });
 
-test(
-  "createQuizmeDebugLogger can be enabled via environment variable",
-  async function () {
-    const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
+test("createQuizmeDebugLogger can be enabled via environment variable", async function () {
+	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
 
-    try {
-      await withEnv(DEBUG_ENV, "1", async function () {
-        const logger = createQuizmeDebugLogger({
-          baseDir,
-          identifier: "unit-test",
-        });
+	try {
+		await withEnv(DEBUG_ENV, "1", async function () {
+			const logger = createQuizmeDebugLogger({
+				baseDir,
+				identifier: "unit-test",
+			});
 
-        await logger.log({ step: "start", value: 1 });
+			await logger.log({ step: "start", value: 1 });
 
-        const contents = await readFile(logger.filePath, "utf8");
-        const data = JSON.parse(contents) as Record<string, unknown>;
+			const contents = await readFile(logger.filePath, "utf8");
+			const data = JSON.parse(contents) as Record<string, unknown>;
 
-        assert.equal(data.step, "start");
-        assert.equal(data.value, 1);
-      });
-    } finally {
-      await rm(baseDir, { recursive: true, force: true });
-    }
-  },
-);
+			assert.equal(data.step, "start");
+			assert.equal(data.value, 1);
+		});
+	} finally {
+		await rm(baseDir, { recursive: true, force: true });
+	}
+});
 
 test("createQuizmeDebugLogger writes merged snapshots", async function () {
-  const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
-  const logger = createQuizmeDebugLogger({
-    baseDir,
-    identifier: "unit-test",
-    enabled: true,
-  });
+	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
+	const logger = createQuizmeDebugLogger({
+		baseDir,
+		identifier: "unit-test",
+		enabled: true,
+	});
 
-  await logger.log({ step: "start", value: 1 });
-  await logger.log({ step: "next", extra: "ok" });
+	await logger.log({ step: "start", value: 1 });
+	await logger.log({ step: "next", extra: "ok" });
 
-  const contents = await readFile(logger.filePath, "utf8");
-  const data = JSON.parse(contents) as Record<string, unknown>;
+	const contents = await readFile(logger.filePath, "utf8");
+	const data = JSON.parse(contents) as Record<string, unknown>;
 
-  assert.equal(data.step, "next");
-  assert.equal(data.value, 1);
-  assert.equal(data.extra, "ok");
+	assert.equal(data.step, "next");
+	assert.equal(data.value, 1);
+	assert.equal(data.extra, "ok");
 
-  await rm(baseDir, { recursive: true, force: true });
+	await rm(baseDir, { recursive: true, force: true });
 });
 
-test(
-  "getQuizmeModelInfo returns the quizme model when key exists",
-  async function () {
-    const { provider, id } = parseModelSpec(QUIZME_MODEL);
-    const quizModel = createModel(provider, id);
-    const activeModel = createModel("openai", "gpt-test");
+test("getQuizmeModelInfo returns the quizme model when key exists", async function () {
+	const { provider, id } = parseModelSpec(QUIZME_MODEL);
+	const quizModel = createModel(provider, id);
+	const activeModel = createModel("openai", "gpt-test");
 
-    const modelInfo = await getQuizmeModelInfo(
-      {
-        find(lookupProvider: string, lookupId: string) {
-          assert.equal(lookupProvider, provider);
-          assert.equal(lookupId, id);
-          return quizModel;
-        },
-        async getApiKey(model: Model<any>) {
-          return model === quizModel ? "quiz-key" : undefined;
-        },
-      },
-      activeModel,
-    );
+	const modelInfo = await getQuizmeModelInfo(
+		{
+			find(lookupProvider: string, lookupId: string) {
+				assert.equal(lookupProvider, provider);
+				assert.equal(lookupId, id);
+				return quizModel;
+			},
+			async getApiKey(model: Model<any>) {
+				return model === quizModel ? "quiz-key" : undefined;
+			},
+		},
+		activeModel,
+	);
 
-    assert.deepEqual(modelInfo, { model: quizModel, apiKey: "quiz-key" });
-  },
-);
+	assert.deepEqual(modelInfo, { model: quizModel, apiKey: "quiz-key" });
+});
 
-test(
-  "getQuizmeModelInfo falls back to active model when quiz key missing",
-  async function () {
-    const { provider, id } = parseModelSpec(QUIZME_MODEL);
-    const quizModel = createModel(provider, id);
-    const activeModel = createModel("openai", "gpt-test");
+test("getQuizmeModelInfo falls back to active model when quiz key missing", async function () {
+	const { provider, id } = parseModelSpec(QUIZME_MODEL);
+	const quizModel = createModel(provider, id);
+	const activeModel = createModel("openai", "gpt-test");
 
-    const modelInfo = await getQuizmeModelInfo(
-      {
-        find() {
-          return quizModel;
-        },
-        async getApiKey(model: Model<any>) {
-          return model === activeModel ? "active-key" : undefined;
-        },
-      },
-      activeModel,
-    );
+	const modelInfo = await getQuizmeModelInfo(
+		{
+			find() {
+				return quizModel;
+			},
+			async getApiKey(model: Model<any>) {
+				return model === activeModel ? "active-key" : undefined;
+			},
+		},
+		activeModel,
+	);
 
-    assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
-  },
-);
+	assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
+});
 
-test(
-  "getQuizmeModelInfo falls back when quiz model is unavailable",
-  async function () {
-    const activeModel = createModel("openai", "gpt-test");
+test("getQuizmeModelInfo falls back when quiz model is unavailable", async function () {
+	const activeModel = createModel("openai", "gpt-test");
 
-    const modelInfo = await getQuizmeModelInfo(
-      {
-        find() {
-          return undefined;
-        },
-        async getApiKey(model: Model<any>) {
-          return model === activeModel ? "active-key" : undefined;
-        },
-      },
-      activeModel,
-    );
+	const modelInfo = await getQuizmeModelInfo(
+		{
+			find() {
+				return undefined;
+			},
+			async getApiKey(model: Model<any>) {
+				return model === activeModel ? "active-key" : undefined;
+			},
+		},
+		activeModel,
+	);
 
-    assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
-  },
-);
+	assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
+});
 
-test(
-  "getQuizmeModelInfo returns undefined when no keys available",
-  async function () {
-    const { provider, id } = parseModelSpec(QUIZME_MODEL);
-    const quizModel = createModel(provider, id);
-    const activeModel = createModel("openai", "gpt-test");
+test("getQuizmeModelInfo returns undefined when no keys available", async function () {
+	const { provider, id } = parseModelSpec(QUIZME_MODEL);
+	const quizModel = createModel(provider, id);
+	const activeModel = createModel("openai", "gpt-test");
 
-    const modelInfo = await getQuizmeModelInfo(
-      {
-        find() {
-          return quizModel;
-        },
-        async getApiKey() {
-          return undefined;
-        },
-      },
-      activeModel,
-    );
+	const modelInfo = await getQuizmeModelInfo(
+		{
+			find() {
+				return quizModel;
+			},
+			async getApiKey() {
+				return undefined;
+			},
+		},
+		activeModel,
+	);
 
-    assert.equal(modelInfo, undefined);
-  },
-);
+	assert.equal(modelInfo, undefined);
+});

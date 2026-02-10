@@ -31,7 +31,9 @@ test("applyLearnStuffTwo is idempotent when context already exists", () => {
 });
 
 test("extension registers before_agent_start and injects context", async () => {
-	type Handler = (event: { systemPrompt: string }) => Promise<{ systemPrompt: string } | void>;
+	type Handler = (event: {
+		systemPrompt: string;
+	}) => Promise<{ systemPrompt: string } | void>;
 	let beforeAgentStart: Handler | undefined;
 
 	type CommandHandler = (args: string, ctx: unknown) => Promise<void>;
@@ -54,7 +56,10 @@ test("extension registers before_agent_start and injects context", async () => {
 	};
 
 	learnStuffTwo(pi as never);
-	assert.ok(beforeAgentStart, "before_agent_start handler should be registered");
+	assert.ok(
+		beforeAgentStart,
+		"before_agent_start handler should be registered",
+	);
 
 	const result = await beforeAgentStart!({ systemPrompt: "BASE" });
 	assert.ok(result);
@@ -146,7 +151,14 @@ test("extractLessonsFromAssistantOutput parses lessons bullets from block", () =
 });
 
 test("mergeLessonsIntoAgentsContent appends only new lessons", () => {
-	const existing = ["# Team Rules", "", "## Lessons", "", "- Keep outputs concise.", ""].join("\n");
+	const existing = [
+		"# Team Rules",
+		"",
+		"## Lessons",
+		"",
+		"- Keep outputs concise.",
+		"",
+	].join("\n");
 	const merged = mergeLessonsIntoAgentsContent(existing, [
 		"Keep outputs concise.",
 		"Persist lessons close to changed code.",
@@ -154,7 +166,9 @@ test("mergeLessonsIntoAgentsContent appends only new lessons", () => {
 
 	assert.equal(merged.addedCount, 1);
 	assert.ok(merged.content.includes("- Keep outputs concise."));
-	assert.ok(merged.content.includes("- Persist lessons close to changed code."));
+	assert.ok(
+		merged.content.includes("- Persist lessons close to changed code."),
+	);
 });
 
 test("mergeLessonsIntoAgentsContent de-duplicates strong canonical variants", () => {
@@ -218,8 +232,10 @@ test("resolveNearestAgentsPathForModifiedFile prefers nearest existing AGENTS", 
 		"/repo/src/someproject/auth/AGENTS.md",
 	]);
 
-	const resolved = resolveNearestAgentsPathForModifiedFile(modifiedFile, root, (path) =>
-		existingAgents.has(path),
+	const resolved = resolveNearestAgentsPathForModifiedFile(
+		modifiedFile,
+		root,
+		(path) => existingAgents.has(path),
 	);
 
 	assert.equal(resolved, "/repo/src/someproject/auth/AGENTS.md");
@@ -230,8 +246,10 @@ test("resolveNearestAgentsPathForModifiedFile falls back to changed file directo
 	const modifiedFile = "/repo/src/payments/ledger/reconcile.ts";
 	const existingAgents = new Set(["/repo/AGENTS.md"]);
 
-	const resolved = resolveNearestAgentsPathForModifiedFile(modifiedFile, root, (path) =>
-		existingAgents.has(path),
+	const resolved = resolveNearestAgentsPathForModifiedFile(
+		modifiedFile,
+		root,
+		(path) => existingAgents.has(path),
 	);
 
 	assert.equal(resolved, "/repo/src/payments/ledger/AGENTS.md");

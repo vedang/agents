@@ -35,7 +35,11 @@ function notifyOSC99(title: string, body: string): void {
 
 function notifyWindows(title: string, body: string): void {
 	const { execFile } = require("child_process");
-	execFile("powershell.exe", ["-NoProfile", "-Command", windowsToastScript(title, body)]);
+	execFile("powershell.exe", [
+		"-NoProfile",
+		"-Command",
+		windowsToastScript(title, body),
+	]);
 }
 
 function notify(title: string, body: string): void {

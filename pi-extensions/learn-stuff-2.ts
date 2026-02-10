@@ -6,14 +6,25 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import {
+	dirname,
+	isAbsolute,
+	join,
+	normalize,
+	relative,
+	resolve,
+} from "node:path";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
 
 const LEARN_STUFF_2_MODE_SENTINEL = "You are in 'learn-stuff-2' mode";
 const SHOW_LESSONS_COMMAND = "learn-stuff:show-lessons";
 const ADD_LESSON_COMMAND = "learn-stuff:add-lesson";
 const LESSONS_BLOCK_LABEL = "★ Lessons";
-const LESSONS_BLOCK_DIVIDER = "─────────────────────────────────────────────────";
+const LESSONS_BLOCK_DIVIDER =
+	"─────────────────────────────────────────────────";
 const SHOW_LESSONS_MESSAGE_TYPE = "learn-stuff-2-show-lessons";
 const SHOW_LESSONS_MAX_CHARS = 12_000;
 const LESSONS_FUZZY_JACCARD_THRESHOLD = 0.86;
@@ -92,11 +103,16 @@ function normalizeWhitespace(value: string): string {
 }
 
 function stripWrappingBackticks(line: string): string {
-	return line.trim().replace(/^`+|`+$/g, "").trim();
+	return line
+		.trim()
+		.replace(/^`+|`+$/g, "")
+		.trim();
 }
 
 function normalizeLesson(lesson: string): string {
-	return normalizeWhitespace(stripWrappingBackticks(lesson).replace(/^[-*]\s+/, ""));
+	return normalizeWhitespace(
+		stripWrappingBackticks(lesson).replace(/^[-*]\s+/, ""),
+	);
 }
 
 function stemLessonToken(token: string): string {
@@ -123,7 +139,9 @@ function canonicalTokens(lesson: string): string[] {
 		.filter((token) => token.length > 1)
 		.filter((token) => !LESSON_STOPWORDS.has(token));
 
-	return [...new Set(rawTokens)].sort((left, right) => left.localeCompare(right));
+	return [...new Set(rawTokens)].sort((left, right) =>
+		left.localeCompare(right),
+	);
 }
 
 function buildLessonSignature(lesson: string): LessonSignature {
@@ -136,7 +154,10 @@ function buildLessonSignature(lesson: string): LessonSignature {
 	};
 }
 
-function jaccardSimilarity(leftTokens: string[], rightTokens: string[]): number {
+function jaccardSimilarity(
+	leftTokens: string[],
+	rightTokens: string[],
+): number {
 	if (leftTokens.length === 0 || rightTokens.length === 0) return 0;
 
 	const rightSet = new Set(rightTokens);
@@ -150,7 +171,10 @@ function jaccardSimilarity(leftTokens: string[], rightTokens: string[]): number 
 	return intersection / union;
 }
 
-function isFuzzyDuplicate(left: LessonSignature, right: LessonSignature): boolean {
+function isFuzzyDuplicate(
+	left: LessonSignature,
+	right: LessonSignature,
+): boolean {
 	if (left.tokens.length < LESSONS_MIN_FUZZY_TOKENS) return false;
 	if (right.tokens.length < LESSONS_MIN_FUZZY_TOKENS) return false;
 
@@ -161,13 +185,22 @@ function isFuzzyDuplicate(left: LessonSignature, right: LessonSignature): boolea
 	}
 
 	if (intersection < LESSONS_MIN_FUZZY_INTERSECTION) return false;
-	return jaccardSimilarity(left.tokens, right.tokens) >= LESSONS_FUZZY_JACCARD_THRESHOLD;
+	return (
+		jaccardSimilarity(left.tokens, right.tokens) >=
+		LESSONS_FUZZY_JACCARD_THRESHOLD
+	);
 }
 
-function areLessonsEquivalent(left: LessonSignature, right: LessonSignature): boolean {
+function areLessonsEquivalent(
+	left: LessonSignature,
+	right: LessonSignature,
+): boolean {
 	if (!left.normalized || !right.normalized) return false;
 	if (left.normalized === right.normalized) return true;
-	if (left.canonicalKey.length > 0 && left.canonicalKey === right.canonicalKey) {
+	if (
+		left.canonicalKey.length > 0 &&
+		left.canonicalKey === right.canonicalKey
+	) {
 		return true;
 	}
 	return isFuzzyDuplicate(left, right);
@@ -204,7 +237,9 @@ function messageContentToText(content: unknown): string {
 		.trim();
 }
 
-function extractLatestAssistantOutput(messages: AgentEndMessageLike[] | undefined): string | null {
+function extractLatestAssistantOutput(
+	messages: AgentEndMessageLike[] | undefined,
+): string | null {
 	if (!Array.isArray(messages)) return null;
 
 	for (let index = messages.length - 1; index >= 0; index--) {
@@ -219,7 +254,9 @@ function extractLatestAssistantOutput(messages: AgentEndMessageLike[] | undefine
 
 export function extractLessonsFromAssistantOutput(output: string): string[] {
 	const lines = output.split(/\r?\n/);
-	const startIndex = lines.findIndex((line) => stripWrappingBackticks(line).includes(LESSONS_BLOCK_LABEL));
+	const startIndex = lines.findIndex((line) =>
+		stripWrappingBackticks(line).includes(LESSONS_BLOCK_LABEL),
+	);
 	if (startIndex < 0) return [];
 
 	let endIndex = lines.length;
@@ -264,7 +301,9 @@ function parseHeading(line: string): { level: number; text: string } | null {
 	};
 }
 
-function findFirstLessonsSectionBounds(lines: string[]): { headingIndex: number; sectionEnd: number } | null {
+function findFirstLessonsSectionBounds(
+	lines: string[],
+): { headingIndex: number; sectionEnd: number } | null {
 	let headingIndex = -1;
 	let headingLevel = 0;
 
@@ -289,7 +328,9 @@ function findFirstLessonsSectionBounds(lines: string[]): { headingIndex: number;
 	return { headingIndex, sectionEnd: lines.length };
 }
 
-export function extractLessonsSectionsFromAgentsContent(content: string): string[] {
+export function extractLessonsSectionsFromAgentsContent(
+	content: string,
+): string[] {
 	const lines = content.split(/\r?\n/);
 	const sections: string[] = [];
 
@@ -311,7 +352,10 @@ export function extractLessonsSectionsFromAgentsContent(content: string): string
 			}
 		}
 
-		const body = lines.slice(index + 1, sectionEnd).join("\n").trim();
+		const body = lines
+			.slice(index + 1, sectionEnd)
+			.join("\n")
+			.trim();
 		if (body.length > 0) sections.push(body);
 		index = sectionEnd;
 	}
@@ -319,7 +363,9 @@ export function extractLessonsSectionsFromAgentsContent(content: string): string
 	return sections;
 }
 
-function collectLessonSignaturesInSectionLines(sectionLines: string[]): LessonSignature[] {
+function collectLessonSignaturesInSectionLines(
+	sectionLines: string[],
+): LessonSignature[] {
 	const existing: LessonSignature[] = [];
 
 	for (const line of sectionLines) {
@@ -344,18 +390,28 @@ export function mergeLessonsIntoAgentsContent(
 		return { content: existingContent, addedCount: 0 };
 	}
 
-	const lines = existingContent.length > 0 ? existingContent.split(/\r?\n/) : [];
+	const lines =
+		existingContent.length > 0 ? existingContent.split(/\r?\n/) : [];
 	const sectionBounds = findFirstLessonsSectionBounds(lines);
 
 	if (!sectionBounds) {
-		const sectionLines = ["## Lessons", "", ...uniqueLessons.map((lesson) => `- ${lesson}`)];
+		const sectionLines = [
+			"## Lessons",
+			"",
+			...uniqueLessons.map((lesson) => `- ${lesson}`),
+		];
 		const base = existingContent.trimEnd();
 		const merged =
-			base.length > 0 ? `${base}\n\n${sectionLines.join("\n")}` : sectionLines.join("\n");
+			base.length > 0
+				? `${base}\n\n${sectionLines.join("\n")}`
+				: sectionLines.join("\n");
 		return { content: merged, addedCount: uniqueLessons.length };
 	}
 
-	const sectionLines = lines.slice(sectionBounds.headingIndex + 1, sectionBounds.sectionEnd);
+	const sectionLines = lines.slice(
+		sectionBounds.headingIndex + 1,
+		sectionBounds.sectionEnd,
+	);
 	const existingLessons = collectLessonSignaturesInSectionLines(sectionLines);
 	const lessonsToAdd: string[] = [];
 
@@ -363,7 +419,11 @@ export function mergeLessonsIntoAgentsContent(
 		const signature = buildLessonSignature(lesson);
 		if (!signature.normalized) continue;
 
-		if (existingLessons.some((existing) => areLessonsEquivalent(signature, existing))) {
+		if (
+			existingLessons.some((existing) =>
+				areLessonsEquivalent(signature, existing),
+			)
+		) {
 			continue;
 		}
 
@@ -388,7 +448,10 @@ export function mergeLessonsIntoAgentsContent(
 }
 
 function normalizeToolPath(pathValue: string, cwd: string): string {
-	const trimmed = pathValue.trim().replace(/^['"]|['"]$/g, "").replace(/^@/, "");
+	const trimmed = pathValue
+		.trim()
+		.replace(/^['"]|['"]$/g, "")
+		.replace(/^@/, "");
 	if (!trimmed) return "";
 	return normalize(isAbsolute(trimmed) ? trimmed : resolve(cwd, trimmed));
 }
@@ -473,8 +536,14 @@ function collectAgentsFiles(projectRoot: string): string[] {
 	return files.sort((left, right) => left.localeCompare(right));
 }
 
-function buildLessonsDigest(projectRoot: string, lessonsByFile: LessonsByFile[]): string {
-	const sectionCount = lessonsByFile.reduce((sum, file) => sum + file.sections.length, 0);
+function buildLessonsDigest(
+	projectRoot: string,
+	lessonsByFile: LessonsByFile[],
+): string {
+	const sectionCount = lessonsByFile.reduce(
+		(sum, file) => sum + file.sections.length,
+		0,
+	);
 	const header = [
 		"Lessons digest from AGENTS.md files.",
 		`Project root: ${projectRoot}`,
@@ -516,7 +585,10 @@ function pushMessage(
 	pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
 }
 
-async function persistLessonsForTargets(targets: string[], lessons: string[]): Promise<number> {
+async function persistLessonsForTargets(
+	targets: string[],
+	lessons: string[],
+): Promise<number> {
 	let addedCount = 0;
 
 	for (const target of targets) {
@@ -530,7 +602,9 @@ async function persistLessonsForTargets(targets: string[], lessons: string[]): P
 		addedCount += merged.addedCount;
 
 		await mkdir(dirname(target), { recursive: true });
-		const contentToWrite = merged.content.endsWith("\n") ? merged.content : `${merged.content}\n`;
+		const contentToWrite = merged.content.endsWith("\n")
+			? merged.content
+			: `${merged.content}\n`;
 		await writeFile(target, contentToWrite, "utf-8");
 	}
 
@@ -593,7 +667,9 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 		pendingModifiedPaths.clear();
 		if (modifiedPaths.length === 0) return;
 
-		const output = extractLatestAssistantOutput(event.messages as AgentEndMessageLike[] | undefined);
+		const output = extractLatestAssistantOutput(
+			event.messages as AgentEndMessageLike[] | undefined,
+		);
 		if (!output) return;
 
 		const lessons = extractLessonsFromAssistantOutput(output);
@@ -604,7 +680,10 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 
 		for (const modifiedPath of modifiedPaths) {
 			if (!isPathInsideRoot(modifiedPath, projectRoot)) continue;
-			const target = resolveNearestAgentsPathForModifiedFile(modifiedPath, projectRoot);
+			const target = resolveNearestAgentsPathForModifiedFile(
+				modifiedPath,
+				projectRoot,
+			);
 			targets.add(target);
 		}
 

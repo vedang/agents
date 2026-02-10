@@ -12,7 +12,12 @@ test("buildModelCliArgs uses explicit provider + model frontmatter keys", () => 
 
 	assert.equal(resolved.ok, true);
 	if (!resolved.ok) return;
-	assert.deepEqual(resolved.args, ["--provider", "cerebras", "--model", "zai-glm-4.7"]);
+	assert.deepEqual(resolved.args, [
+		"--provider",
+		"cerebras",
+		"--model",
+		"zai-glm-4.7",
+	]);
 	assert.equal(resolved.requested?.provider, "cerebras");
 	assert.equal(resolved.requested?.model, "zai-glm-4.7");
 });
@@ -41,7 +46,12 @@ test("buildModelCliArgs allows slash-containing model when provider is explicit"
 
 	assert.equal(resolved.ok, true);
 	if (!resolved.ok) return;
-	assert.deepEqual(resolved.args, ["--provider", "openrouter", "--model", "openai/gpt-5-codex"]);
+	assert.deepEqual(resolved.args, [
+		"--provider",
+		"openrouter",
+		"--model",
+		"openai/gpt-5-codex",
+	]);
 });
 
 test("buildModelCliArgs rejects namespaced model without explicit provider", () => {

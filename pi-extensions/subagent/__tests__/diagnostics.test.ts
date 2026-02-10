@@ -47,9 +47,14 @@ test("buildFailureDiagnostics includes event counts and snapshots", () => {
 		toolResultEndCount: 11,
 		recentEvents: [
 			{ type: "message_end", role: "assistant", stopReason: "toolUse" },
-			{ type: "tool_result_end", role: "toolResult", toolName: "bash", isError: false },
+			{
+				type: "tool_result_end",
+				role: "toolResult",
+				toolName: "bash",
+				isError: false,
+			},
 		],
-		lastToolCall: { name: "subagent", argumentsPreview: "{\"chain\":...}" },
+		lastToolCall: { name: "subagent", argumentsPreview: '{"chain":...}' },
 		lastToolResult: { toolName: "bash", isError: true, preview: "error: ..." },
 		stderr: "line1\nline2",
 	});
