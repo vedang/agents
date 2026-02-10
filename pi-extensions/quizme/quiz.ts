@@ -56,6 +56,107 @@ Notes:
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+const decodeJsonString = (value: string): string => {
+  try {
+    return JSON.parse(`"${value}"`) as string;
+  } catch {
+    return value;
+  }
+};
+
+const sanitizeJsonCandidate = (text: string): string => {
+  const normalizedQuotes = text
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+
+  const withoutFences = normalizedQuotes
+    .replace(/```json\s*/gi, "")
+    .replace(/```/g, "");
+
+  return withoutFences.replace(/,\s*([}\]])/g, "$1").trim();
+};
+
+const extractStringField = (
+  text: string,
+  key: string,
+): string | undefined => {
+  const pattern = new RegExp(
+    `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
+    "i",
+  );
+  const match = text.match(pattern);
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const decoded = decodeJsonString(match[1]).trim();
+  return decoded.length > 0 ? decoded : undefined;
+};
+
+const extractChoicesField = (text: string): string[] | undefined => {
+  const match = text.match(/"choices"\s*:\s*\[([\s\S]*?)\]/i);
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const values = [...match[1].matchAll(/"((?:\\.|[^"\\])*)"/g)]
+    .map((value) => decodeJsonString(value[1] ?? "").trim())
+    .filter((value) => value.length > 0);
+
+  return values.length > 0 ? values : undefined;
+};
+
+const recoverQuestionsFromMalformedText = (
+  text: string,
+): QuizQuestion[] | undefined => {
+  const markers = [...text.matchAll(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/g)];
+  if (markers.length === 0) {
+    return undefined;
+  }
+
+  const questions: QuizQuestion[] = [];
+  const seenIds = new Set<string>();
+
+  for (let index = 0; index < markers.length; index += 1) {
+    const marker = markers[index];
+    const markerIndex = marker.index ?? -1;
+    if (markerIndex < 0) {
+      continue;
+    }
+
+    const segmentStart = Math.max(text.lastIndexOf("{", markerIndex), markerIndex);
+    const nextMarkerIndex =
+      index + 1 < markers.length ? (markers[index + 1].index ?? text.length) : text.length;
+    const segment = text.slice(segmentStart, nextMarkerIndex);
+
+    const id = decodeJsonString(marker[1] ?? "").trim();
+    if (!isNonEmptyString(id)) {
+      continue;
+    }
+
+    if (id.toLowerCase() === "questions" || seenIds.has(id)) {
+      continue;
+    }
+
+    const question = extractStringField(segment, "question");
+    const answer = extractStringField(segment, "answer");
+    if (!question || !answer) {
+      continue;
+    }
+
+    seenIds.add(id);
+    questions.push({
+      id,
+      question,
+      answer,
+      type: extractStringField(segment, "type"),
+      choices: extractChoicesField(segment),
+    });
+  }
+
+  return questions.length > 0 ? questions : undefined;
+};
+
 const tryParseObject = (text: string): Record<string, unknown> | undefined => {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -193,6 +294,46 @@ export const parseQuizPayload = (quizText: string): QuizPayload | undefined => {
   }
 
   return { questions };
+};
+
+export const parseQuizPayloadWithRepair = (
+  quizText: string,
+): QuizPayload | undefined => {
+  const parsed = parseQuizPayload(quizText);
+  if (parsed) {
+    return parsed;
+  }
+
+  const sanitized = sanitizeJsonCandidate(quizText);
+  if (sanitized && sanitized !== quizText) {
+    const repaired = parseQuizPayload(sanitized);
+    if (repaired) {
+      return repaired;
+    }
+  }
+
+  const recoveredQuestions = recoverQuestionsFromMalformedText(sanitized || quizText);
+  if (!recoveredQuestions) {
+    return undefined;
+  }
+
+  return { questions: recoveredQuestions };
+};
+
+export const buildQuizRepairPrompt = (malformedQuizText: string): string => {
+  return [
+    "You are a JSON repair assistant.",
+    "Repair malformed quiz output into valid JSON matching the required schema.",
+    "Keep recovered question meaning intact and do not include markdown fences.",
+    "Drop unrecoverable question entries instead of emitting invalid JSON.",
+    "",
+    "Output format: [ref:quizme_quiz_payload_format]",
+    QUIZ_OUTPUT_SPEC,
+    "",
+    "<malformed_quiz_output>",
+    malformedQuizText || "(empty output)",
+    "</malformed_quiz_output>",
+  ].join("\n");
 };
 
 export const formatQuestionMarkdown = (

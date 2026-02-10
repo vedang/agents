@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   buildGradingPrompt,
   buildQuizPrompt,
+  buildQuizRepairPrompt,
   formatGradingResultsMarkdown,
   parseGradingPayload,
   parseQuizPayload,
+  parseQuizPayloadWithRepair,
 } from "../quiz";
 
 test("parseQuizPayload parses quiz JSON", () => {
@@ -121,4 +123,39 @@ test("formatGradingResultsMarkdown includes question text and omits choices", ()
     ),
   );
   assert.equal(markdown.includes("**Choices:**"), false);
+});
+
+test("parseQuizPayloadWithRepair fixes trailing commas in otherwise valid JSON", () => {
+  const malformed =
+    '{"questions":[{"id":"q1","question":"What changed?","answer":"A detail",},],}';
+
+  const parsed = parseQuizPayloadWithRepair(malformed);
+
+  assert.ok(parsed);
+  assert.equal(parsed.questions.length, 1);
+  assert.equal(parsed.questions[0].id, "q1");
+  assert.equal(parsed.questions[0].question, "What changed?");
+  assert.equal(parsed.questions[0].answer, "A detail");
+});
+
+test("parseQuizPayloadWithRepair recovers questions from malformed structure", () => {
+  const malformed =
+    '{"questions":[{"id":"q1","question":"First?","answer":"First answer"},{"id":"questions":[{"id":"q2","question":"Second?","answer":"Second answer"}]}';
+
+  const parsed = parseQuizPayloadWithRepair(malformed);
+
+  assert.ok(parsed);
+  assert.equal(parsed.questions.length, 2);
+  assert.equal(parsed.questions[0].id, "q1");
+  assert.equal(parsed.questions[1].id, "q2");
+  assert.equal(parsed.questions[1].answer, "Second answer");
+});
+
+test("buildQuizRepairPrompt includes malformed payload and output contract", () => {
+  const prompt = buildQuizRepairPrompt("{not-json}");
+
+  assert.ok(prompt.includes("JSON repair assistant"));
+  assert.ok(prompt.includes("Output format"));
+  assert.ok(prompt.includes("{not-json}"));
+  assert.ok(prompt.includes("<malformed_quiz_output>"));
 });

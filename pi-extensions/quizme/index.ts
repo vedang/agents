@@ -16,10 +16,11 @@ import { getQuizmeModelInfo } from "./model";
 import {
   buildGradingPrompt,
   buildQuizPrompt,
+  buildQuizRepairPrompt,
   formatGradingResultsMarkdown,
   formatQuestionMarkdown,
   parseGradingPayload,
-  parseQuizPayload,
+  parseQuizPayloadWithRepair,
 } from "./quiz";
 
 type ContentBlock = {
@@ -49,6 +50,8 @@ const QUIZ_PROMPT_PATH = join(
 );
 const GRADING_SYSTEM_PROMPT =
   "You are a quiz grader who only checks answer correctness and returns JSON in the requested grading schema.";
+const QUIZ_REPAIR_SYSTEM_PROMPT =
+  "You repair malformed quiz payloads into strict JSON with a top-level questions array. Return only valid JSON.";
 const TOOL_OUTPUT_MAX_LINES = 40;
 const TOOL_OUTPUT_MAX_CHARS = 4000;
 const THINKING_MAX_LINES = 12;
@@ -391,8 +394,53 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     return;
   }
 
-  const quizPayload = parseQuizPayload(quizText);
-  await logSnapshot({ quizPayload });
+  let quizPayload = parseQuizPayloadWithRepair(quizText);
+  await logSnapshot({ quizPayload, quizRepairStage: quizPayload ? "deterministic" : "none" });
+
+  if (!quizPayload) {
+    ctx.ui.notify("Quiz output format was unexpected; attempting repair...", "info");
+
+    const quizRepairPrompt = buildQuizRepairPrompt(quizText);
+    await logSnapshot({ quizRepairPrompt });
+
+    const quizRepairResponse = await completeSimple(
+      active.model,
+      {
+        systemPrompt: QUIZ_REPAIR_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: quizRepairPrompt }],
+            timestamp: Date.now(),
+          },
+        ],
+      },
+      { apiKey: active.apiKey },
+    );
+    await logSnapshot({ quizRepairResponse });
+
+    if (quizRepairResponse.stopReason !== "error") {
+      const repairedQuizText = quizRepairResponse.content
+        .filter(
+          (block): block is { type: "text"; text: string } =>
+            block.type === "text",
+        )
+        .map((block) => block.text)
+        .join("\n")
+        .trim();
+      await logSnapshot({ repairedQuizText });
+
+      if (repairedQuizText) {
+        quizPayload = parseQuizPayloadWithRepair(repairedQuizText);
+        await logSnapshot({ repairedQuizPayload: quizPayload });
+      }
+    } else {
+      await logSnapshot({
+        quizRepairError: quizRepairResponse.errorMessage ?? "Unknown error",
+      });
+    }
+  }
+
   if (!quizPayload) {
     ctx.ui.notify("Quiz output could not be parsed", "warning");
     return;
