@@ -1,7 +1,6 @@
 .DEFAULT_GOAL := help
 
 BIOME := bunx --yes @biomejs/biome
-PI_EXT_TS_FILES := $(shell find pi-extensions -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \))
 TEST_FILES := $(shell find pi-extensions -type f -path "*/__tests__/*.test.ts")
 
 .PHONY: help test check format
@@ -13,7 +12,7 @@ test: ## Run repository tests
 	@bunx --yes tsx --test $(TEST_FILES)
 
 check: ## Lint TypeScript in pi-extensions using Biome
-	@$(BIOME) lint --files-ignore-unknown=true $(PI_EXT_TS_FILES)
+	@$(BIOME) lint --reporter=summary --files-ignore-unknown=true $$(find pi-extensions -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \))
 
 format: ## Format TypeScript in pi-extensions using Biome
-	@$(BIOME) format --write --files-ignore-unknown=true $(PI_EXT_TS_FILES)
+	@$(BIOME) format --write --files-ignore-unknown=true $$(find pi-extensions -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \))

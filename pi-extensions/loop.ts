@@ -410,6 +410,11 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				}
 			}
 
+			if (!nextState.mode) {
+				ctx.ui.notify("Loop setup failed: missing mode", "warning");
+				return;
+			}
+
 			const summarizedState: LoopStateData = {
 				...nextState,
 				summary: undefined,
@@ -419,7 +424,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			ctx.ui.notify("Loop active", "info");
 			triggerLoopPrompt(ctx);
 
-			const mode = nextState.mode!;
+			const mode = nextState.mode;
 			const condition = nextState.condition;
 			void (async () => {
 				const summary = await summarizeBreakoutCondition(ctx, mode, condition);

@@ -249,7 +249,7 @@ const showMarkdownPanel = async (
 	ctx: ExtensionContext,
 	helperText: string,
 ): Promise<boolean> => {
-	return ctx.ui.custom<boolean>((tui, theme, _kb, done) => {
+	return ctx.ui.custom<boolean>((_tui, theme, _kb, done) => {
 		const container = new Container();
 		const border = new DynamicBorder((s: string) => theme.fg("accent", s));
 		const mdTheme = getMarkdownTheme();
@@ -284,7 +284,7 @@ const showQuestionPanel = async (
 	ctx: ExtensionContext,
 	helperText: string,
 ): Promise<QuestionAction> => {
-	return ctx.ui.custom<QuestionAction>((tui, theme, _kb, done) => {
+	return ctx.ui.custom<QuestionAction>((_tui, theme, _kb, done) => {
 		const container = new Container();
 		const border = new DynamicBorder((s: string) => theme.fg("accent", s));
 		const mdTheme = getMarkdownTheme();

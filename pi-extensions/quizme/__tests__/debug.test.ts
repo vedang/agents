@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import type { Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@mariozechner/pi-ai";
 
 import { createQuizmeDebugLogger } from "../debug";
 import { QUIZME_MODEL, getQuizmeModelInfo } from "../model";
@@ -34,8 +34,8 @@ async function withEnv(
 	}
 }
 
-function createModel(provider: string, id: string): Model<any> {
-	return { provider, id } as Model<any>;
+function createModel(provider: string, id: string): Model<Api> {
+	return { provider, id } as Model<Api>;
 }
 
 function parseModelSpec(spec: string): { provider: string; id: string } {
@@ -43,11 +43,11 @@ function parseModelSpec(spec: string): { provider: string; id: string } {
 	return { provider, id: rest.join("/") };
 }
 
-test("createQuizmeDebugLogger is disabled by default", async function () {
+test("createQuizmeDebugLogger is disabled by default", async () => {
 	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
 
 	try {
-		await withEnv(DEBUG_ENV, undefined, async function () {
+		await withEnv(DEBUG_ENV, undefined, async () => {
 			const logger = createQuizmeDebugLogger({
 				baseDir,
 				identifier: "unit-test",
@@ -62,11 +62,11 @@ test("createQuizmeDebugLogger is disabled by default", async function () {
 	}
 });
 
-test("createQuizmeDebugLogger can be enabled via environment variable", async function () {
+test("createQuizmeDebugLogger can be enabled via environment variable", async () => {
 	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
 
 	try {
-		await withEnv(DEBUG_ENV, "1", async function () {
+		await withEnv(DEBUG_ENV, "1", async () => {
 			const logger = createQuizmeDebugLogger({
 				baseDir,
 				identifier: "unit-test",
@@ -85,7 +85,7 @@ test("createQuizmeDebugLogger can be enabled via environment variable", async fu
 	}
 });
 
-test("createQuizmeDebugLogger writes merged snapshots", async function () {
+test("createQuizmeDebugLogger writes merged snapshots", async () => {
 	const baseDir = await mkdtemp(join(tmpdir(), "quizme-debug-"));
 	const logger = createQuizmeDebugLogger({
 		baseDir,
@@ -106,7 +106,7 @@ test("createQuizmeDebugLogger writes merged snapshots", async function () {
 	await rm(baseDir, { recursive: true, force: true });
 });
 
-test("getQuizmeModelInfo returns the quizme model when key exists", async function () {
+test("getQuizmeModelInfo returns the quizme model when key exists", async () => {
 	const { provider, id } = parseModelSpec(QUIZME_MODEL);
 	const quizModel = createModel(provider, id);
 	const activeModel = createModel("openai", "gpt-test");
@@ -118,7 +118,7 @@ test("getQuizmeModelInfo returns the quizme model when key exists", async functi
 				assert.equal(lookupId, id);
 				return quizModel;
 			},
-			async getApiKey(model: Model<any>) {
+			async getApiKey(model: Model<Api>) {
 				return model === quizModel ? "quiz-key" : undefined;
 			},
 		},
@@ -128,7 +128,7 @@ test("getQuizmeModelInfo returns the quizme model when key exists", async functi
 	assert.deepEqual(modelInfo, { model: quizModel, apiKey: "quiz-key" });
 });
 
-test("getQuizmeModelInfo falls back to active model when quiz key missing", async function () {
+test("getQuizmeModelInfo falls back to active model when quiz key missing", async () => {
 	const { provider, id } = parseModelSpec(QUIZME_MODEL);
 	const quizModel = createModel(provider, id);
 	const activeModel = createModel("openai", "gpt-test");
@@ -138,7 +138,7 @@ test("getQuizmeModelInfo falls back to active model when quiz key missing", asyn
 			find() {
 				return quizModel;
 			},
-			async getApiKey(model: Model<any>) {
+			async getApiKey(model: Model<Api>) {
 				return model === activeModel ? "active-key" : undefined;
 			},
 		},
@@ -148,7 +148,7 @@ test("getQuizmeModelInfo falls back to active model when quiz key missing", asyn
 	assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
 });
 
-test("getQuizmeModelInfo falls back when quiz model is unavailable", async function () {
+test("getQuizmeModelInfo falls back when quiz model is unavailable", async () => {
 	const activeModel = createModel("openai", "gpt-test");
 
 	const modelInfo = await getQuizmeModelInfo(
@@ -156,7 +156,7 @@ test("getQuizmeModelInfo falls back when quiz model is unavailable", async funct
 			find() {
 				return undefined;
 			},
-			async getApiKey(model: Model<any>) {
+			async getApiKey(model: Model<Api>) {
 				return model === activeModel ? "active-key" : undefined;
 			},
 		},
@@ -166,7 +166,7 @@ test("getQuizmeModelInfo falls back when quiz model is unavailable", async funct
 	assert.deepEqual(modelInfo, { model: activeModel, apiKey: "active-key" });
 });
 
-test("getQuizmeModelInfo returns undefined when no keys available", async function () {
+test("getQuizmeModelInfo returns undefined when no keys available", async () => {
 	const { provider, id } = parseModelSpec(QUIZME_MODEL);
 	const quizModel = createModel(provider, id);
 	const activeModel = createModel("openai", "gpt-test");

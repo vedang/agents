@@ -33,7 +33,7 @@ test("applyLearnStuffTwo is idempotent when context already exists", () => {
 test("extension registers before_agent_start and injects context", async () => {
 	type Handler = (event: {
 		systemPrompt: string;
-	}) => Promise<{ systemPrompt: string } | void>;
+	}) => Promise<{ systemPrompt: string } | undefined>;
 	let beforeAgentStart: Handler | undefined;
 
 	type CommandHandler = (args: string, ctx: unknown) => Promise<void>;
@@ -61,9 +61,16 @@ test("extension registers before_agent_start and injects context", async () => {
 		"before_agent_start handler should be registered",
 	);
 
-	const result = await beforeAgentStart!({ systemPrompt: "BASE" });
+	if (!beforeAgentStart) {
+		return;
+	}
+
+	const result = await beforeAgentStart({ systemPrompt: "BASE" });
 	assert.ok(result);
-	assert.ok(result!.systemPrompt.includes("You are in 'learn-stuff-2' mode"));
+	if (!result) {
+		return;
+	}
+	assert.ok(result.systemPrompt.includes("You are in 'learn-stuff-2' mode"));
 	assert.equal(commands.has("learn-stuff:show-lessons"), true);
 	assert.equal(commands.has("learn-stuff:add-lesson"), true);
 	assert.equal(commands.has("show-lessons"), false);
@@ -93,6 +100,9 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 	learnStuffTwo(pi as never);
 	const command = commands.get("learn-stuff:add-lesson");
 	assert.ok(command, "learn-stuff:add-lesson command should be registered");
+	if (!command) {
+		return;
+	}
 
 	const tempDir = mkdtempSync(join(tmpdir(), "learn-stuff-2-"));
 	const agentsPath = join(tempDir, "AGENTS.md");
@@ -108,7 +118,7 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 			},
 		};
 
-		await command!.handler(
+		await command.handler(
 			"there is no need to create a commit when we change .agents/plans files, since .agents/plans is gitignored",
 			ctx as never,
 		);
@@ -121,7 +131,7 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 			),
 		);
 
-		await command!.handler(
+		await command.handler(
 			"there is no need to create commit when we change .agents/plans files since .agents/plans is gitignored",
 			ctx as never,
 		);

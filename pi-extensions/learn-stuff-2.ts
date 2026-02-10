@@ -287,7 +287,7 @@ export function extractLessonsFromAssistantOutput(output: string): string[] {
 function normalizeHeadingText(heading: string): string {
 	return heading
 		.toLowerCase()
-		.replace(/[\`*_]/g, "")
+		.replace(/[`*_]/g, "")
 		.replace(/\s*:+\s*$/, "")
 		.trim();
 }

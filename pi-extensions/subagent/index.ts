@@ -83,7 +83,7 @@ function formatUsageStats(
 function formatToolCall(
 	toolName: string,
 	args: Record<string, unknown>,
-	themeFg: (color: any, text: string) => string,
+	themeFg: (color: unknown, text: string) => string,
 ): string {
 	const shortenPath = (p: string) => {
 		const home = os.homedir();
@@ -220,7 +220,7 @@ function getFinalOutput(messages: Message[]): string {
 
 type DisplayItem =
 	| { type: "text"; text: string }
-	| { type: "toolCall"; name: string; args: Record<string, any> };
+	| { type: "toolCall"; name: string; args: Record<string, unknown> };
 
 function getDisplayItems(messages: Message[]): DisplayItem[] {
 	const items: DisplayItem[] = [];
@@ -427,9 +427,13 @@ async function runSingleAgent(
 
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
-				let event: any;
+				let event: Record<string, unknown>;
 				try {
-					event = JSON.parse(line);
+					const parsed = JSON.parse(line);
+					if (!parsed || typeof parsed !== "object") {
+						return;
+					}
+					event = parsed as Record<string, unknown>;
 				} catch {
 					return;
 				}
@@ -437,14 +441,20 @@ async function runSingleAgent(
 				parsedEventCount++;
 				const eventType =
 					typeof event.type === "string" ? event.type : "unknown";
+				const eventTimestamp =
+					typeof event.timestamp === "number" ||
+					typeof event.timestamp === "string"
+						? event.timestamp
+						: undefined;
+				const eventMessage = event.message;
 
-				if (eventType === "message_end" && event.message) {
+				if (eventType === "message_end" && eventMessage) {
 					messageEndCount++;
-					const msg = event.message as Message;
+					const msg = eventMessage as Message;
 					currentResult.messages.push(msg);
 					pushRecentEvent(recentEvents, {
 						type: eventType,
-						timestamp: event.timestamp ?? msg.timestamp,
+						timestamp: eventTimestamp ?? msg.timestamp,
 						role: msg.role,
 						stopReason: msg.role === "assistant" ? msg.stopReason : undefined,
 						preview: getMessagePreview(msg),
@@ -486,9 +496,9 @@ async function runSingleAgent(
 					return;
 				}
 
-				if (eventType === "tool_result_end" && event.message) {
+				if (eventType === "tool_result_end" && eventMessage) {
 					toolResultEndCount++;
-					const msg = event.message as Message;
+					const msg = eventMessage as Message;
 					currentResult.messages.push(msg);
 					const preview = getToolResultPreview(msg);
 					if (msg.role === "toolResult") {
@@ -500,7 +510,7 @@ async function runSingleAgent(
 					}
 					pushRecentEvent(recentEvents, {
 						type: eventType,
-						timestamp: event.timestamp ?? msg.timestamp,
+						timestamp: eventTimestamp ?? msg.timestamp,
 						role: msg.role,
 						toolName: msg.role === "toolResult" ? msg.toolName : undefined,
 						isError: msg.role === "toolResult" ? msg.isError : undefined,
@@ -512,7 +522,7 @@ async function runSingleAgent(
 
 				pushRecentEvent(recentEvents, {
 					type: eventType,
-					timestamp: event.timestamp,
+					timestamp: eventTimestamp,
 				});
 			};
 
@@ -1027,7 +1037,7 @@ export default function (pi: ExtensionAPI) {
 			};
 
 			const appendDiagnosticsToText = (text: string, result: SingleResult) => {
-				const diagnosticsText = getDiagnosticsSummaryText(r.diagnostics);
+				const diagnosticsText = getDiagnosticsSummaryText(result.diagnostics);
 				if (diagnosticsText) text += `\n${theme.fg("dim", diagnosticsText)}`;
 				return text;
 			};

@@ -57,6 +57,7 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("No model selected", "error");
 				return;
 			}
+			const model = ctx.model;
 
 			const goal = args.trim();
 			if (!goal) {
@@ -94,7 +95,7 @@ export default function (pi: ExtensionAPI) {
 					loader.onAbort = () => done(null);
 
 					const doGenerate = async () => {
-						const apiKey = await ctx.modelRegistry.getApiKey(ctx.model!);
+						const apiKey = await ctx.modelRegistry.getApiKey(model);
 
 						const userMessage: Message = {
 							role: "user",
@@ -108,7 +109,7 @@ export default function (pi: ExtensionAPI) {
 						};
 
 						const response = await complete(
-							ctx.model!,
+							model,
 							{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
 							{ apiKey, signal: loader.signal },
 						);

@@ -1,14 +1,14 @@
-import type { Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@mariozechner/pi-ai";
 
 export const QUIZME_MODEL = "cerebras/zai-glm-4.7"; // [tag:quizme_model_spec_format]
 
 type QuizmeModelRegistry = {
-	find: (provider: string, modelId: string) => Model<any> | undefined;
-	getApiKey: (model: Model<any>) => Promise<string | undefined>;
+	find: (provider: string, modelId: string) => Model<Api> | undefined;
+	getApiKey: (model: Model<Api>) => Promise<string | undefined>;
 };
 
 type QuizmeModelInfo = {
-	model: Model<any>;
+	model: Model<Api>;
 	apiKey: string;
 };
 
@@ -28,7 +28,7 @@ const parseModelSpec = (spec: string): ModelSpec | undefined => {
 
 const resolveQuizmeModel = (
 	modelRegistry: QuizmeModelRegistry,
-): Model<any> | undefined => {
+): Model<Api> | undefined => {
 	const spec = parseModelSpec(QUIZME_MODEL);
 	if (!spec) {
 		return undefined;
@@ -39,7 +39,7 @@ const resolveQuizmeModel = (
 
 export const getQuizmeModelInfo = async (
 	modelRegistry: QuizmeModelRegistry,
-	activeModel: Model<any> | undefined,
+	activeModel: Model<Api> | undefined,
 ): Promise<QuizmeModelInfo | undefined> => {
 	const quizModel = resolveQuizmeModel(modelRegistry);
 	if (quizModel) {

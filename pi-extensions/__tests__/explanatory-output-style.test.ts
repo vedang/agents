@@ -26,7 +26,7 @@ test("applyExplanatoryOutputStyle is idempotent when context already exists", ()
 test("extension registers before_agent_start and injects context", async () => {
 	type Handler = (event: {
 		systemPrompt: string;
-	}) => Promise<{ systemPrompt: string } | void>;
+	}) => Promise<{ systemPrompt: string } | undefined>;
 	let beforeAgentStart: Handler | undefined;
 
 	const pi = {
@@ -37,15 +37,21 @@ test("extension registers before_agent_start and injects context", async () => {
 		},
 	};
 
-	explanatoryOutputStyle(pi as any);
+	explanatoryOutputStyle(pi as Parameters<typeof explanatoryOutputStyle>[0]);
 	assert.ok(
 		beforeAgentStart,
 		"before_agent_start handler should be registered",
 	);
+	if (!beforeAgentStart) {
+		return;
+	}
 
-	const result = await beforeAgentStart!({ systemPrompt: "BASE" });
+	const result = await beforeAgentStart({ systemPrompt: "BASE" });
 	assert.ok(result);
+	if (!result) {
+		return;
+	}
 	assert.ok(
-		result!.systemPrompt.includes("You are in 'explanatory' output style mode"),
+		result.systemPrompt.includes("You are in 'explanatory' output style mode"),
 	);
 });
