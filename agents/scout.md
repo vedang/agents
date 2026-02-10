@@ -1,9 +1,11 @@
 ---
 name: scout
-provider: cerebras
+provider: zai-custom
 model: zai-glm-4.7
 temperature: 0.9
 top_p: 0.95
+clear_thinking: false
+zai_base_url: https://api.cerebras.ai/v1
 tools: read, grep, find, ls, bash
 description: Fast codebase recon that returns compressed context for handoff to other agents
 ---
