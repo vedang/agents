@@ -112,6 +112,10 @@ const extractTextParts = (content: unknown): string[] => {
   return parts;
 };
 
+const extractMessageText = (content: unknown): string => {
+  return extractTextParts(content).join("\n").trim();
+};
+
 const extractThinkingParts = (content: unknown): string[] => {
   if (!Array.isArray(content)) {
     return [];
@@ -379,14 +383,7 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     return;
   }
 
-  const quizText = quizResponse.content
-    .filter(
-      (block): block is { type: "text"; text: string } =>
-        block.type === "text",
-    )
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
+  const quizText = extractMessageText(quizResponse.content);
   await logSnapshot({ quizText });
 
   if (!quizText) {
@@ -394,10 +391,7 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     return;
   }
 
-  let quizPayload = parseQuizPayloadWithRepair(quizText);
-  await logSnapshot({ quizPayload, quizRepairStage: quizPayload ? "deterministic" : "none" });
-
-  if (!quizPayload) {
+  const attemptModelQuizRepair = async (): Promise<string | undefined> => {
     ctx.ui.notify("Quiz output format was unexpected; attempting repair...", "info");
 
     const quizRepairPrompt = buildQuizRepairPrompt(quizText);
@@ -419,25 +413,29 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     );
     await logSnapshot({ quizRepairResponse });
 
-    if (quizRepairResponse.stopReason !== "error") {
-      const repairedQuizText = quizRepairResponse.content
-        .filter(
-          (block): block is { type: "text"; text: string } =>
-            block.type === "text",
-        )
-        .map((block) => block.text)
-        .join("\n")
-        .trim();
-      await logSnapshot({ repairedQuizText });
-
-      if (repairedQuizText) {
-        quizPayload = parseQuizPayloadWithRepair(repairedQuizText);
-        await logSnapshot({ repairedQuizPayload: quizPayload });
-      }
-    } else {
+    if (quizRepairResponse.stopReason === "error") {
       await logSnapshot({
         quizRepairError: quizRepairResponse.errorMessage ?? "Unknown error",
       });
+      return undefined;
+    }
+
+    const repairedQuizText = extractMessageText(quizRepairResponse.content);
+    await logSnapshot({ repairedQuizText });
+    return repairedQuizText || undefined;
+  };
+
+  let quizPayload = parseQuizPayloadWithRepair(quizText);
+  await logSnapshot({
+    quizPayload,
+    quizRepairStage: quizPayload ? "deterministic" : "none",
+  });
+
+  if (!quizPayload) {
+    const repairedQuizText = await attemptModelQuizRepair();
+    if (repairedQuizText) {
+      quizPayload = parseQuizPayloadWithRepair(repairedQuizText);
+      await logSnapshot({ repairedQuizPayload: quizPayload });
     }
   }
 
@@ -540,14 +538,7 @@ const runQuiz = async (ctx: ExtensionContext): Promise<void> => {
     return;
   }
 
-  const gradingText = gradingResponse.content
-    .filter(
-      (block): block is { type: "text"; text: string } =>
-        block.type === "text",
-    )
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
+  const gradingText = extractMessageText(gradingResponse.content);
   await logSnapshot({ gradingText });
 
   if (!gradingText) {
