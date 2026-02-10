@@ -6,6 +6,11 @@ import explanatoryOutputStyle, {
 	applyExplanatoryOutputStyle,
 } from "../explanatory-output-style";
 
+function assertDefined<T>(value: T | undefined, message: string): T {
+	assert.ok(value, message);
+	return value;
+}
+
 test("applyExplanatoryOutputStyle appends explanatory guidance", () => {
 	const basePrompt = "You are a coding assistant.";
 	const prompt = applyExplanatoryOutputStyle(basePrompt);
@@ -38,19 +43,15 @@ test("extension registers before_agent_start and injects context", async () => {
 	};
 
 	explanatoryOutputStyle(pi as Parameters<typeof explanatoryOutputStyle>[0]);
-	assert.ok(
+	const handler = assertDefined(
 		beforeAgentStart,
 		"before_agent_start handler should be registered",
 	);
-	if (!beforeAgentStart) {
-		return;
-	}
 
-	const result = await beforeAgentStart({ systemPrompt: "BASE" });
-	assert.ok(result);
-	if (!result) {
-		return;
-	}
+	const result = assertDefined(
+		await handler({ systemPrompt: "BASE" }),
+		"before_agent_start handler should return updated system prompt",
+	);
 	assert.ok(
 		result.systemPrompt.includes("You are in 'explanatory' output style mode"),
 	);

@@ -13,6 +13,11 @@ import learnStuffTwo, {
 	resolveNearestAgentsPathForModifiedFile,
 } from "../learn-stuff-2";
 
+function assertDefined<T>(value: T | undefined, message: string): T {
+	assert.ok(value, message);
+	return value;
+}
+
 test("applyLearnStuffTwo appends lessons guidance", () => {
 	const basePrompt = "You are a coding assistant.";
 	const prompt = applyLearnStuffTwo(basePrompt);
@@ -56,20 +61,15 @@ test("extension registers before_agent_start and injects context", async () => {
 	};
 
 	learnStuffTwo(pi as never);
-	assert.ok(
+	const handler = assertDefined(
 		beforeAgentStart,
 		"before_agent_start handler should be registered",
 	);
 
-	if (!beforeAgentStart) {
-		return;
-	}
-
-	const result = await beforeAgentStart({ systemPrompt: "BASE" });
-	assert.ok(result);
-	if (!result) {
-		return;
-	}
+	const result = assertDefined(
+		await handler({ systemPrompt: "BASE" }),
+		"before_agent_start handler should return updated system prompt",
+	);
 	assert.ok(result.systemPrompt.includes("You are in 'learn-stuff-2' mode"));
 	assert.equal(commands.has("learn-stuff:show-lessons"), true);
 	assert.equal(commands.has("learn-stuff:add-lesson"), true);
@@ -98,11 +98,10 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 	};
 
 	learnStuffTwo(pi as never);
-	const command = commands.get("learn-stuff:add-lesson");
-	assert.ok(command, "learn-stuff:add-lesson command should be registered");
-	if (!command) {
-		return;
-	}
+	const command = assertDefined(
+		commands.get("learn-stuff:add-lesson"),
+		"learn-stuff:add-lesson command should be registered",
+	);
 
 	const tempDir = mkdtempSync(join(tmpdir(), "learn-stuff-2-"));
 	const agentsPath = join(tempDir, "AGENTS.md");
