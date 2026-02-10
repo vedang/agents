@@ -40,6 +40,7 @@ import {
 	getModelMismatch,
 	getRuntimeModelLabel,
 } from "./model-routing.js";
+import { buildSubagentProviderEnv } from "./provider-env.js";
 import { buildSubagentCallText } from "./render-call.js";
 
 const MAX_PARALLEL_TASKS = 8;
@@ -416,11 +417,13 @@ async function runSingleAgent(
 
 		args.push(`Task: ${task}`);
 		let wasAborted = false;
+		const childEnv = buildSubagentProviderEnv(agent, process.env);
 
 		const exitCode = await new Promise<number>((resolve) => {
 			const proc = spawn("pi", args, {
 				cwd: cwd ?? defaultCwd,
 				shell: false,
+				env: childEnv,
 				stdio: ["ignore", "pipe", "pipe"],
 			});
 			let buffer = "";

@@ -6,10 +6,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { parseFrontmatter } from "@mariozechner/pi-coding-agent";
+import {
+	type SubagentProviderKnobs,
+	parseSubagentProviderFrontmatter,
+} from "./provider-env.js";
 
 export type AgentScope = "user" | "project" | "both";
 
-export interface AgentConfig {
+export interface AgentConfig extends SubagentProviderKnobs {
 	name: string;
 	description: string;
 	tools?: string[];
@@ -24,6 +28,30 @@ export interface AgentConfig {
 export interface AgentDiscoveryResult {
 	agents: AgentConfig[];
 	projectAgentsDir: string | null;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseTools(value: unknown): string[] | undefined {
+	if (typeof value === "string") {
+		const tools = value
+			.split(",")
+			.map((tool) => tool.trim())
+			.filter(Boolean);
+		return tools.length > 0 ? tools : undefined;
+	}
+	if (Array.isArray(value)) {
+		const tools = value
+			.filter((tool): tool is string => typeof tool === "string")
+			.map((tool) => tool.trim())
+			.filter(Boolean);
+		return tools.length > 0 ? tools : undefined;
+	}
+	return undefined;
 }
 
 function loadAgentsFromDir(
@@ -56,26 +84,27 @@ function loadAgentsFromDir(
 		}
 
 		const { frontmatter, body } =
-			parseFrontmatter<Record<string, string>>(content);
+			parseFrontmatter<Record<string, unknown>>(content);
 
-		if (!frontmatter.name || !frontmatter.description) {
+		const name = parseOptionalString(frontmatter.name);
+		const description = parseOptionalString(frontmatter.description);
+		if (!name || !description) {
 			continue;
 		}
 
-		const tools = frontmatter.tools
-			?.split(",")
-			.map((t: string) => t.trim())
-			.filter(Boolean);
+		const providerKnobs = parseSubagentProviderFrontmatter(frontmatter);
+		const tools = parseTools(frontmatter.tools);
 
 		agents.push({
-			name: frontmatter.name,
-			description: frontmatter.description,
-			tools: tools && tools.length > 0 ? tools : undefined,
-			provider: frontmatter.provider,
-			model: frontmatter.model,
+			name,
+			description,
+			tools,
+			provider: parseOptionalString(frontmatter.provider),
+			model: parseOptionalString(frontmatter.model),
 			systemPrompt: body,
 			source,
 			filePath,
+			...providerKnobs,
 		});
 	}
 
