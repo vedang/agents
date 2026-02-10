@@ -859,6 +859,12 @@ export default function (pi: ExtensionAPI) {
 				return text;
 			};
 
+            const appendDiagnosticsToText = (text: string, result: SingleResult) => {
+                const diagnosticsText = getDiagnosticsSummaryText(r.diagnostics);
+				if (diagnosticsText) text += `\n${theme.fg("dim", diagnosticsText)}`;
+                return text;
+            };
+
 			if (details.mode === "single" && details.results.length === 1) {
 				const r = details.results[0];
 				const isError = r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted";
@@ -906,8 +912,7 @@ export default function (pi: ExtensionAPI) {
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
 				text = appendModelInfoToText(text, r);
-				const diagnosticsText = getDiagnosticsSummaryText(r.diagnostics);
-				if (diagnosticsText) text += `\n${theme.fg("dim", diagnosticsText)}`;
+                text = appendDiagnosticsToText(text, r);
 				return new Text(text, 0, 0);
 			}
 
