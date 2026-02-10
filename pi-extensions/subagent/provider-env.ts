@@ -32,6 +32,22 @@ function parseOptionalString(value: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function setMirroredEnvValue(
+	env: NodeJS.ProcessEnv,
+	primaryKey: string,
+	secondaryKey: string,
+	value: string | undefined,
+): void {
+	if (value === undefined) return;
+	env[primaryKey] = value;
+	env[secondaryKey] = value;
+}
+
+function booleanToEnvValue(value: boolean | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	return value ? "true" : "false";
+}
+
 export function parseSubagentProviderFrontmatter(
 	frontmatter: Record<string, unknown>,
 ): SubagentProviderKnobs {
@@ -52,25 +68,25 @@ export function buildSubagentProviderEnv(
 ): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = { ...baseEnv };
 
-	if (knobs.temperature !== undefined) {
-		const value = `${knobs.temperature}`;
-		env.PI_ZAI_TEMPERATURE = value;
-		env.ZAI_TEMPERATURE = value;
-	}
-	if (knobs.topP !== undefined) {
-		const value = `${knobs.topP}`;
-		env.PI_ZAI_TOP_P = value;
-		env.ZAI_TOP_P = value;
-	}
-	if (knobs.clearThinking !== undefined) {
-		const value = knobs.clearThinking ? "true" : "false";
-		env.PI_ZAI_CLEAR_THINKING = value;
-		env.ZAI_CLEAR_THINKING = value;
-	}
-	if (knobs.zaiBaseUrl !== undefined) {
-		env.PI_ZAI_BASE_URL = knobs.zaiBaseUrl;
-		env.ZAI_BASE_URL = knobs.zaiBaseUrl;
-	}
+	setMirroredEnvValue(
+		env,
+		"PI_ZAI_TEMPERATURE",
+		"ZAI_TEMPERATURE",
+		knobs.temperature !== undefined ? `${knobs.temperature}` : undefined,
+	);
+	setMirroredEnvValue(
+		env,
+		"PI_ZAI_TOP_P",
+		"ZAI_TOP_P",
+		knobs.topP !== undefined ? `${knobs.topP}` : undefined,
+	);
+	setMirroredEnvValue(
+		env,
+		"PI_ZAI_CLEAR_THINKING",
+		"ZAI_CLEAR_THINKING",
+		booleanToEnvValue(knobs.clearThinking),
+	);
+	setMirroredEnvValue(env, "PI_ZAI_BASE_URL", "ZAI_BASE_URL", knobs.zaiBaseUrl);
 
 	return env;
 }
