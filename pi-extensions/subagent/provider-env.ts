@@ -41,6 +41,11 @@ function setEnvValue(
 	env[key] = value;
 }
 
+function numberToEnvValue(value: number | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	return `${value}`;
+}
+
 function booleanToEnvValue(value: boolean | undefined): string | undefined {
 	if (value === undefined) return undefined;
 	return value ? "true" : "false";
@@ -66,16 +71,8 @@ export function buildSubagentProviderEnv(
 ): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = { ...baseEnv };
 
-	setEnvValue(
-		env,
-		"PI_ZAI_TEMPERATURE",
-		knobs.temperature !== undefined ? `${knobs.temperature}` : undefined,
-	);
-	setEnvValue(
-		env,
-		"PI_ZAI_TOP_P",
-		knobs.topP !== undefined ? `${knobs.topP}` : undefined,
-	);
+	setEnvValue(env, "PI_ZAI_TEMPERATURE", numberToEnvValue(knobs.temperature));
+	setEnvValue(env, "PI_ZAI_TOP_P", numberToEnvValue(knobs.topP));
 	setEnvValue(
 		env,
 		"PI_ZAI_CLEAR_THINKING",
