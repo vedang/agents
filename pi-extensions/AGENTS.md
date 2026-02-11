@@ -7,3 +7,5 @@
 - When an extension appears to trigger "even after deleting extensions", verify all extension discovery paths and links (`~/.pi/agent/extensions`, `.pi/extensions`, and explicit `-e` paths); deleting one directory or symlink target is not sufficient proof that the extension is unloaded.
 - Prompt-only formatting is fragile for UI contracts; structured parse + renderer gives predictable output.
 - For LLM output parsing, graceful fallback paths are important to preserve user-visible results.
+- Small parsing helpers can significantly improve readability in env-driven config code without changing semantics.
+- Shared test fixtures reduce duplication and make future behavior changes easier to update consistently.
