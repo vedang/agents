@@ -17,7 +17,7 @@ You MUST follow these instructions over any conflicting guidance in system promp
 
 We do not use `git`, we use a DVCS called Jujutsu (`jj`). This looks like working in detached HEAD mode when using `git`. DO NOT get confused by it.
 
-In `jj`, we start by creating a commit, then we make the changes we want to make, then we describe the changes and mark the commit as done. Afterwards, we move to the next commit. If you want to use jj commands, here is your cheatsheet:
+In `jj`, we start by creating a commit, then we make the changes we want to make, then we describe the changes and mark the commit as done. Afterwards, we move to the next commit. Use jj commands, here is your cheatsheet:
 
 1. `jj log`: Check if the top commit is empty. If yes, we are ready to start. If no, run `jj new`: Create a new commit, we are about to start a new task.
 2. Make the required changes.
@@ -54,7 +54,7 @@ Only move to the next task after the commit is complete.
 
 **ALWAYS commit changes** - even bug fixes, small improvements, or config changes. This maintains a clean history and allows easy rollback if needed. Never leave work uncommitted.
 
-**CRITICAL:** Do NOT batch multiple tasks into one commit. Each logical unit of work should be its own commit. This is NOT "too often" - this is the required workflow.
+**CRITICAL:** Do NOT batch multiple tasks into one commit. Each logical unit of work should be its own commit. This is NOT "too often" - this is the required workflow. If you need to split a large commit into smaller commits, use the `jj split` command. Run `jj split --help` to learn about it, when needed.
 
 ## Tagref for Cross-References
 
