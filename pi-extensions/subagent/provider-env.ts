@@ -63,7 +63,9 @@ export function parseSubagentProviderFrontmatter(
 }
 
 /**
- * [ref:zai_custom_env_knob_contract]
+ * [tag:generic_temperature_env_contract]
+ * Generic temperature knob is emitted as PI_TEMPERATURE for consumption
+ * by any provider that supports temperature sampling (not just ZAI).
  */
 export function buildSubagentProviderEnv(
 	knobs: SubagentProviderKnobs,
@@ -71,14 +73,16 @@ export function buildSubagentProviderEnv(
 ): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = { ...baseEnv };
 
-	setEnvValue(env, "PI_ZAI_TEMPERATURE", numberToEnvValue(knobs.temperature));
-	setEnvValue(env, "PI_ZAI_TOP_P", numberToEnvValue(knobs.topP));
+	// [ref:generic_temperature_env_contract]
+	setEnvValue(env, "PI_TEMPERATURE", numberToEnvValue(knobs.temperature));
+	// [ref:zai_custom_env_knob_contract]
+	setEnvValue(env, "PI_ZAI_CUSTOM_TOP_P", numberToEnvValue(knobs.topP));
 	setEnvValue(
 		env,
-		"PI_ZAI_CLEAR_THINKING",
+		"PI_ZAI_CUSTOM_CLEAR_THINKING",
 		booleanToEnvValue(knobs.clearThinking),
 	);
-	setEnvValue(env, "PI_ZAI_BASE_URL", knobs.zaiBaseUrl);
+	setEnvValue(env, "PI_ZAI_CUSTOM_BASE_URL", knobs.zaiBaseUrl);
 
 	return env;
 }
