@@ -5,12 +5,13 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 ## Example commands for using agents configuration with the Pi Coding Agent
 
 1. `git clone https://github.com/vedang/agents ~/.config/agents`
-2. `ln -s ~/.pi/agent/AGENTS.md ~/.config/agents/AGENTS.md`
-3. `ln -s ~/.pi/agent/APPEND_SYSTEM.md ~/.config/agents/APPEND_SYSTEM.md`
-4. `ln -s ~/.pi/agent/agents ~/.config/agents/agents`
-5. `ln -s ~/.pi/agent/prompts ~/.config/agents/prompts`
-6. `ln -s ~/.pi/agent/extensions ~/.config/agents/pi-extensions`
-7. `ln -s ~/.pi/agent/skills ~/.config/agents/skills`
+2. `mkdir -p ~/.pi/agent`
+3. `ln -s ~/.config/agents/AGENTS.md ~/.pi/agent/AGENTS.md`
+4. `ln -s ~/.config/agents/APPEND_SYSTEM.md ~/.pi/agent/APPEND_SYSTEM.md`
+5. `ln -s ~/.config/agents/agents ~/.pi/agent/agents`
+6. `ln -s ~/.config/agents/prompts ~/.pi/agent/prompts`
+7. `ln -s ~/.config/agents/pi-extensions ~/.pi/agent/extensions`
+8. `ln -s ~/.config/agents/skills ~/.pi/agent/skills`
 
 ## The configuration
 
