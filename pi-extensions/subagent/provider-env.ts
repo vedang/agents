@@ -32,15 +32,13 @@ function parseOptionalString(value: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function setMirroredEnvValue(
+function setEnvValue(
 	env: NodeJS.ProcessEnv,
-	primaryKey: string,
-	secondaryKey: string,
+	key: string,
 	value: string | undefined,
 ): void {
 	if (value === undefined) return;
-	env[primaryKey] = value;
-	env[secondaryKey] = value;
+	env[key] = value;
 }
 
 function booleanToEnvValue(value: boolean | undefined): string | undefined {
@@ -68,25 +66,22 @@ export function buildSubagentProviderEnv(
 ): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = { ...baseEnv };
 
-	setMirroredEnvValue(
+	setEnvValue(
 		env,
 		"PI_ZAI_TEMPERATURE",
-		"ZAI_TEMPERATURE",
 		knobs.temperature !== undefined ? `${knobs.temperature}` : undefined,
 	);
-	setMirroredEnvValue(
+	setEnvValue(
 		env,
 		"PI_ZAI_TOP_P",
-		"ZAI_TOP_P",
 		knobs.topP !== undefined ? `${knobs.topP}` : undefined,
 	);
-	setMirroredEnvValue(
+	setEnvValue(
 		env,
 		"PI_ZAI_CLEAR_THINKING",
-		"ZAI_CLEAR_THINKING",
 		booleanToEnvValue(knobs.clearThinking),
 	);
-	setMirroredEnvValue(env, "PI_ZAI_BASE_URL", "ZAI_BASE_URL", knobs.zaiBaseUrl);
+	setEnvValue(env, "PI_ZAI_BASE_URL", knobs.zaiBaseUrl);
 
 	return env;
 }

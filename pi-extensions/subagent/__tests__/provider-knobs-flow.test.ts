@@ -29,6 +29,10 @@ test("subagent role-level frontmatter knobs are parsed and propagated to child e
 	assert.equal(childEnv.PI_ZAI_TOP_P, "0.88");
 	assert.equal(childEnv.PI_ZAI_CLEAR_THINKING, "true");
 	assert.equal(childEnv.PI_ZAI_BASE_URL, "https://api.z.ai/api/coding/paas/v4");
+	assert.equal(childEnv.ZAI_TEMPERATURE, undefined);
+	assert.equal(childEnv.ZAI_TOP_P, undefined);
+	assert.equal(childEnv.ZAI_CLEAR_THINKING, undefined);
+	assert.equal(childEnv.ZAI_BASE_URL, undefined);
 });
 
 test("subagent implementation wires frontmatter knobs into spawn env", () => {
