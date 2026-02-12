@@ -26,7 +26,7 @@ function buildMissingModelError(providerRaw: string | undefined): string {
 	const providerHint = providerRaw?.trim()
 		? ` Provider is set to "${providerRaw.trim()}".`
 		: "";
-	return `Invalid model frontmatter: model is empty.${providerHint} Set model to a provider-local ID (for example model: zai-glm-4.7).`;
+	return `Invalid model frontmatter: model is empty.${providerHint} Set model to a provider-local ID (for example model: glm-4.7).`;
 }
 
 function buildNamespacedModelWithoutProviderError(rawModel: string): string {

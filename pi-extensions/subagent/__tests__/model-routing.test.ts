@@ -60,7 +60,7 @@ test("buildModelCliArgs rejects namespaced model without explicit provider", () 
 	assert.equal(resolved.ok, false);
 	if (resolved.ok) return;
 	assert.match(resolved.error, /provider/i);
-	assert.match(resolved.error, /model: zai-glm-4.7/i);
+	assert.match(resolved.error, /model:/i);
 });
 
 test("buildModelCliArgs rejects empty model values", () => {

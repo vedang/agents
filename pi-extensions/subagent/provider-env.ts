@@ -2,7 +2,6 @@ export interface SubagentProviderKnobs {
 	temperature?: number;
 	topP?: number;
 	clearThinking?: boolean;
-	zaiBaseUrl?: string;
 }
 
 function parseOptionalNumber(value: unknown): number | undefined {
@@ -24,12 +23,6 @@ function parseOptionalBoolean(value: unknown): boolean | undefined {
 		if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
 	}
 	return undefined;
-}
-
-function parseOptionalString(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function setEnvValue(
@@ -58,7 +51,6 @@ export function parseSubagentProviderFrontmatter(
 		temperature: parseOptionalNumber(frontmatter.temperature),
 		topP: parseOptionalNumber(frontmatter.top_p),
 		clearThinking: parseOptionalBoolean(frontmatter.clear_thinking),
-		zaiBaseUrl: parseOptionalString(frontmatter.zai_base_url),
 	};
 }
 
@@ -82,7 +74,6 @@ export function buildSubagentProviderEnv(
 		"PI_ZAI_CUSTOM_CLEAR_THINKING",
 		booleanToEnvValue(knobs.clearThinking),
 	);
-	setEnvValue(env, "PI_ZAI_CUSTOM_BASE_URL", knobs.zaiBaseUrl);
 
 	return env;
 }

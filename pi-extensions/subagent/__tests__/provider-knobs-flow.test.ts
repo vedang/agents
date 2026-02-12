@@ -22,16 +22,13 @@ test("subagent role-level frontmatter knobs are parsed and propagated to child e
 	assert.equal(knobs.temperature, 0.66);
 	assert.equal(knobs.topP, 0.88);
 	assert.equal(knobs.clearThinking, true);
-	assert.equal(knobs.zaiBaseUrl, "https://api.z.ai/api/coding/paas/v4");
+	assert.equal((knobs as { zaiBaseUrl?: string }).zaiBaseUrl, undefined);
 
 	const childEnv = buildSubagentProviderEnv(knobs, { PATH: process.env.PATH });
 	assert.equal(childEnv.PI_TEMPERATURE, "0.66");
 	assert.equal(childEnv.PI_ZAI_CUSTOM_TOP_P, "0.88");
 	assert.equal(childEnv.PI_ZAI_CUSTOM_CLEAR_THINKING, "true");
-	assert.equal(
-		childEnv.PI_ZAI_CUSTOM_BASE_URL,
-		"https://api.z.ai/api/coding/paas/v4",
-	);
+	assert.equal(childEnv.PI_ZAI_CUSTOM_BASE_URL, undefined);
 	assert.equal(childEnv.PI_ZAI_TEMPERATURE, undefined);
 	assert.equal(childEnv.PI_ZAI_TOP_P, undefined);
 	assert.equal(childEnv.PI_ZAI_CLEAR_THINKING, undefined);

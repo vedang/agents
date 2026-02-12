@@ -86,7 +86,7 @@ You are a specialized agent for X. Do Y.
 
 Subagent frontmatter knobs are threaded via environment variables:
 - Generic: `PI_TEMPERATURE`
-- Provider-specific: `PI_<PROVIDER>_TOP_P`, `PI_<PROVIDER>_BASE_URL`, etc.
+- Provider-specific sampling knobs, e.g. `PI_ZAI_CUSTOM_TOP_P`, `PI_ZAI_CUSTOM_CLEAR_THINKING`
 
 ## Limits
 

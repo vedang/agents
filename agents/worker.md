@@ -5,7 +5,6 @@ model: zai-glm-4.7
 temperature: 0.9
 top_p: 0.95
 clear_thinking: false
-zai_base_url: https://api.cerebras.ai/v1
 description: General-purpose subagent with full capabilities, isolated context
 ---
 
