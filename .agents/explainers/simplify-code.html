@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simplify-Code Extension Explainer</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --text-dim: #6b7280;
+      --primary: #3b82f6;
+      --primary-dim: #dbeafe;
+      --accent: #f97316;
+      --accent-dim: #ffedd5;
+      --success: #10b981;
+      --success-dim: #d1fae5;
+      --warning: #f59e0b;
+      --warning-dim: #fef3c7;
+      --error: #ef4444;
+      --error-dim: #fee2e2;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827;
+        --surface: #1f2937;
+        --border: #374151;
+        --text: #f9fafb;
+        --text-dim: #9ca3af;
+        --primary: #60a5fa;
+        --primary-dim: #1e3a5f;
+        --accent: #fb923c;
+        --accent-dim: #431407;
+        --success: #34d399;
+        --success-dim: #064e3b;
+        --warning: #fbbf24;
+        --warning-dim: #451a03;
+        --error: #f87171;
+        --error-dim: #450a0a;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      padding: 16px 24px;
+      border-bottom .5px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 { font-size: 1.25rem; font-weight: 600; }
+    .header .badge {
+      background: var(--primary-dim);
+      color: var(--primary);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .sidebar {
+      background: var(--surface);
+      padding: 20px;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+    }
+
+    .section { margin-bottom: 24px; }
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    .preset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .preset-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius:oca: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover { background: var(--primary-dim); border-color: var(--primary); color: var(--primary); }
+    .preset-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .control-group { margin-bottom: 16px; }
+    .control-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .range-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-group input[type="range"] {
+      flex: 1;
+      height: 6px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .range-value {
+      min-width: 40px;
+      text-align: right;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .canvas-container {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      min-width: 800px;
+      min-height: 500px;
+    }
+
+    .flow-diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .flow-row {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .node {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      min-width: 140px;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .node.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-dim);
+    }
+
+    .node.disabled {
+      opacity: 0.4;
+      border-color: var(--border);
+    }
+
+    .node-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .node-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    .node-file {
+      font-size: 0.7rem;
+      color: var(--primary);
+      margin-top: 4px;
+    }
+
+    .arrow {
+      color: var(--text-dim);
+      font-size: 1.5rem;
+      transition: all 0.3s;
+    }
+
+    .arrow.active { color: var(--primary); }
+    .arrow.disabled { opacity: 0.3; }
+
+    .flow-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-align: center;
+      font-style: italic;
+      margin: 4px 0;
+    }
+
+    .condition {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .event {
+      background: var(--warning-dim);
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .file-node {
+      background: var(--success-dim);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .prompt-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 20px;
+    }
+
+    .prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .prompt-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .copy-btn {
+      background: var(--primary);
+      color: white;
+: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover { background: var(--primary-dim); color: var(--primary); }
+    .copy-btn.copied { background: var(--success); }
+
+    .prompt-content {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 2px solid;
+    }
+
+    .info-box {
+      background: var(--primary-dim);
+      border: 1px solid var(--primary);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+
+    .info-box strong { color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Simplify-Code Extension</h1>
+      <span class="badge">Architecture Explainer</span>
+    </header>
+
+    <aside class="sidebar">
+      <div class="section">
+        <div class="section-title">View Presets</div>
+        <div class="preset-buttons">
+          <button class="preset-btn active" data-preset="overview">Overview</button>
+          <button class="preset-btn" data-preset="flow">Full Flow</button>
+          <button class="preset-btn" data-preset="events">Events Only</button>
+          <button class="preset-btn" data-preset="files">File Structure</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Show Components</div>
+        <div class="checkbox-group">
+          <label class="checkbox-item">
+            <input type="checkbox" id="showFiles" checked>
+            <span>Files</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="showEvents" checked>
+            <span>Events</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="showConditions" checked>
+            <span>Conditions</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="showFlows" checked>
+            <span>Data Flow</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Animation Speed</div>
+        <div class="range-group">
+          <input type="range" id="speed" min="0" max="3" value="1" step="1">
+          <span class="range-value" id="speedValue">1x</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Trigger Simulation</div>
+        <div class="info-box">
+          <strong>Current state:</strong> <span id="stateLabel">Idle</span>
+        </div>
+        <div class="checkbox-group">
+          <label class="checkbox-item">
+            <input type="checkbox" id="hasCodeChanges">
+            <span>Has code changes</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="hasMarkdownChanges">
+            <span>Has markdown changes</span>
+          </label>
+        </div>
+        <button class="preset-btn" id="simulateBtn" style="width: 100%; margin-top: 12px;">
+          Simulate agent_end
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="canvas-container">
+        <div class="diagram">
+          <div class="flow-diagram" id="diagram"></div>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--success-dim); border-color: var(--success);"></div>
+              <span>File</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--warning-dim); border-color: var(--warning);"></div>
+              <span>Event</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--accent-dim); border-color: var(--accent);"></div>
+              <span>Condition</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--bg); border-color: var(--border);"></div>
+              <span>Action</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="prompt-section">
+        <div class="prompt-header">
+          <span class="prompt-title">Explanation Prompt</span>
+          <button class="copy-btn" id="copyBtn">Copy Prompt</button>
+        </div>
+        <div class="prompt-content" id="prompt"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const DEFAULTS = {
+      showFiles: true,
+      showEvents: true,
+      showConditions: true,
+      showFlows: true,
+      speed: 1,
+      hasCodeChanges: false,
+      hasMarkdownChanges: false
+    };
+
+    const state = { ...DEFAULTS };
+
+    const nodes = {
+      files: [
+        { id: 'index', label: 'index.ts', sub: 'Entry point', file: 'pi-extensions/simplify-code/' },
+        { id: 'prompt', label: 'prompt.md', sub: 'Refinement rules', file: 'pi-extensions/simplify-code/' },
+        { id: 'readme', label: 'README.md', sub: 'Documentation', file: 'pi-extensions/simplify-code/' },
+      ],
+      events: [
+        { id: 'session_start', label: 'session_start', sub: 'Extension loaded' },
+        { id: 'input', label: 'input', sub: 'User message' },
+        { id: 'tool_call', label: 'tool_call', sub: 'Track paths' },
+        { id: 'agent_end', label: 'agent_end', sub: 'Trigger check' },
+      ],
+      conditions: [
+        { id: 'check_command', label: 'Has command?', sub: '/simplify-code exists' },
+        { id: 'check_paths', label: 'Has changes?', sub: 'Non-markdown files' },
+        { id: 'check_source', label: 'From extension?', sub: 'Skip if triggered by self' },
+      ],
+      actions: [
+        { id: 'register', label: 'Register Command', sub: '/simplify-code' },
+        { id: 'trigger', label: 'Trigger Simplify', sub: 'Send prompt to LLM' },
+        { id: 'load_prompt', label: 'Load Prompt', sub: 'Read prompt.md' },
+        { id: 'skip', label: 'Skip', sub: 'Clear paths' },
+      ]
+    };
+
+    const connections = [
+      { from: 'index', to: 'register', type: 'init' },
+      { from: 'register', to: 'check_command', type: 'flow' },
+      { from: 'session_start', to: 'index', type: 'event' },
+      { from: 'input', to: 'index', type: 'event' },
+      { from: 'tool_call', to: 'index', type: 'event' },
+      { from: 'agent_end', to: 'check_source', type: 'trigger' },
+      { from: 'check_source', to: 'check_paths', type: 'flow', condition: 'not from extension' },
+      { from: 'check_paths', to: 'trigger', type: 'flow', condition: 'has non-markdown' },
+      { from: 'check_paths', to: 'skip', type: 'flow', condition: 'only markdown' },
+      { from: 'check_command', to: 'trigger', type: 'flow', condition: 'command exists' },
+      { from: 'trigger', to: 'load_prompt', type: 'flow' },
+      { from: 'load_prompt', to: 'prompt', type: 'read' },
+      { from: 'trigger', to: 'skip', type: 'cleanup' },
+    ];
+
+    const presets = {
+      overview: { showFiles: true, showEvents: true, showConditions: true, showFlows: true },
+      flow: { showFiles: true, showEvents: true, showConditions: true, showFlows: true },
+      events: { showFiles: false, showEvents: true, showConditions: true, showFlows: true },
+      files: { showFiles: true, showEvents: false, showConditions: false, showFlows: false }
+    };
+
+    function getSpeedDelay() {
+      return [0, 1500, 800, 400][state.speed];
+    }
+
+    function renderNode(node) {
+      const classes = ['node'];
+      let typeClass = '';
+
+      if (nodes.files.find(n => n.id === node.id)) {
+        typeClass = 'file-node';
+      } else if (nodes.events.find(n => n.id === node.id)) {
+        typeClass = 'event';
+      } else if (nodes.conditions.find(n => n.id === node.id)) {
+        typeClass = 'condition';
+      }
+
+      classes.push(typeClass);
+
+      return `
+        <div class="${classes.join(' ')}" id="node-${node.id}">
+          <div class="node-label">${node.label}</div>
+          <div class="node-sub">${node.sub}</div>
+          ${node.file ? `<div class="node-file">${node.file}${node.label}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderArrow(label = '', condition = '') {
+      return `
+        <div style="text-align: center;">
+          <div class="arrow">→</div>
+          ${label ? `<div class="flow-label">${label}</div>` : ''}
+          ${condition ? `<div class="flow-label" style="color: var(--accent);">${condition}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderDiagram() {
+      const diagram = document.getElementById('diagram');
+      let html = '';
+
+      // Row 1: Files
+      if (state.showFiles) {
+        html += '<div class="flow-row">';
+        html += nodes.files.map(n => renderNode(n)).join(renderArrow(''));
+        html += '</div>';
+      }
+
+      // Row 2: Events
+      if (state.showEvents) {
+        const eventArrow = state.showFiles ? renderArrow('loads', 'extension init') : '';
+        html += '<div class="flow-row">';
+        html += eventArrow;
+        html += nodes.events.map(n => renderNode(n)).join(renderArrow(''));
+        html += '</div>';
+      }
+
+      // Row 3: Conditions
+      if (state.showConditions) {
+        const condArrow = state.showEvents ? renderArrow('triggers', 'on agent_end') : '';
+        html += '<div class="flow-row">';
+        html += condArrow;
+        html += nodes.conditions.map(n => renderNode(n)).join(renderArrow(''));
+        html += '</div>';
+      }
+
+      // Row 4: Actions
+      if (state.showFlows) {
+        const actionArrow = state.showConditions ? renderArrow('then') : '';
+        html += '<div class="flow-row">';
+        html += actionArrow;
+        html += nodes.actions.map(n => renderNode(n)).join(renderArrow(''));
+        html += '</div>';
+      }
+
+      diagram.innerHTML = html;
+    }
+
+    function updatePrompt() {
+      const parts = [];
+
+      if (!state.showFiles && !state.showEvents && !state.showConditions && !state.showFlows) {
+        parts.push('show me the complete architecture');
+      } else {
+        const visibleParts = [];
+        if (state.showFiles) visibleParts.push('extension files');
+        if (state.showEvents) visibleParts.push('lifecycle events');
+        if (state.showConditions) visibleParts.push('conditional checks');
+        if (state.showFlows) visibleParts.push('data flow');
+
+        if (visibleParts.length < 4) {
+          parts.push(`focus on ${visibleParts.join(', ')}`);
+        }
+      }
+
+      if (state.speed > 0) {
+        parts.push(`with ${state.speed}x animation speed`);
+      }
+
+      let prompt = 'Explain how the pi-extensions/simplify-code/ extension works';
+      if (parts.length > 0) {
+        prompt += ', ' + parts.join('. ') + '.';
+      } else {
+        prompt += '.';
+      }
+
+      // Add simulation context
+      if (state.hasCodeChanges || state.hasMarkdownChanges) {
+        prompt += '\n\nSimulation context:';
+        if (state.hasCodeChanges) prompt += '\n- Code files were modified';
+        if (state.hasMarkdownChanges) prompt += '\n- Markdown files were modified';
+        if (state.hasCodeChanges && !state.hasMarkdownChanges) {
+          prompt += '\n\nExpected behavior: Extension should trigger simplification.';
+        } else if (!state.hasCodeChanges && state.hasMarkdownChanges) {
+          prompt += '\n\nExpected behavior: Extension should skip (markdown-only changes).';
+        } else if (state.hasCodeChanges && state.hasMarkdownChanges) {
+          prompt += '\n\nExpected behavior: Extension should trigger (has non-markdown changes).';
+        }
+      }
+
+      document.getElementById('prompt').textContent = prompt;
+    }
+
+    function updateAll() {
+      renderDiagram();
+      updatePrompt();
+    }
+
+    async function simulateFlow() {
+      const btn = document.getElementById('simulateBtn');
+      const stateLabel = document.getElementById('stateLabel');
+      btn.disabled = true;
+
+      const delay = getSpeedDelay();
+      const steps = [
+        { nodeId: 'agent_end', state: 'Agent ended' },
+        { nodeId: 'check_source', state: 'Checking source' },
+        { nodeId: 'check_paths', state: 'Checking paths' },
+      ];
+
+      // Reset
+      document.querySelectorAll('.node').forEach(n => n.classList.remove('active', 'disabled'));
+      document.querySelectorAll('.arrow').forEach(a => a.classList.remove('active', 'disabled'));
+
+      for (const step of steps) {
+        const node = document.getElementById(`node-${step.nodeId}`);
+        if (node) {
+          node.classList.add('active');
+          stateLabel.textContent = step.state;
+          await new Promise(r => setTimeout(r, delay));
+          node.classList.remove('active');
+        }
+      }
+
+      // Determine outcome
+      const hasCode = state.hasCodeChanges;
+      const hasMd = state.hasMarkdownChanges;
+      const shouldTrigger = hasCode || (hasMd && !hasCode);
+
+      if (shouldTrigger) {
+        const triggerNode = document.getElementById('node-trigger');
+        if (triggerNode) {
+          triggerNode.classList.add('active');
+          stateLabel.textContent = 'Triggering simplification!';
+          await new Promise(r => setTimeout(r, delay));
+          triggerNode.classList.remove('active');
+        }
+      } else {
+        const skipNode = document.getElementById('node-skip');
+        if (skipNode) {
+          skipNode.classList.add('active');
+          stateLabel.textContent = 'Skipping (markdown-only)';
+          await new Promise(r => setTimeout(r, delay));
+          skipNode.classList.remove('active');
+        }
+      }
+
+      stateLabel.textContent = 'Idle';
+      btn.disabled = false;
+    }
+
+    // Event listeners
+    document.querySelectorAll('.preset-btn[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn[data-preset]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const preset = presets[btn.dataset.preset];
+        Object.assign(state, preset);
+        updateAll();
+      });
+    });
+
+    ['showFiles', 'showEvents', 'showConditions', 'showFlows'].forEach(id => {
+      document.getElementById(id).addEventListener('change', (e) => {
+        state[id] = e.target.checked;
+        updateAll();
+      });
+    });
+
+    document.getElementById('speed').addEventListener('input', (e) => {
+      state.speed = parseInt(e.target.value);
+      document.getElementById('speedValue').textContent = state.speed + 'x';
+      updatePrompt();
+    });
+
+    ['hasCodeChanges', 'hasMarkdownChanges'].forEach(id => {
+      document.getElementById(id).addEventListener('change', (e) => {
+        state[id] = e.target.checked;
+        updatePrompt();
+      });
+    });
+
+    document.getElementById('simulateBtn').addEventListener('click', simulateFlow);
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const prompt = document.getElementById('prompt').textContent;
+      await navigator.clipboard.writeText(prompt);
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy Prompt';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+
+    // Initial render
+    updateAll();
+  </script>
+</body>
+</html>
