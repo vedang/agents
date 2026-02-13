@@ -11,6 +11,7 @@ import learnStuffTwo, {
 	extractLessonsSectionsFromAgentsContent,
 	mergeLessonsIntoAgentsContent,
 	resolveNearestAgentsPathForModifiedFile,
+	selectMostAppropriateAgentsPathForModifiedFiles,
 } from "../learn-stuff-2";
 
 function assertDefined<T>(value: T | undefined, message: string): T {
@@ -262,6 +263,71 @@ test("resolveNearestAgentsPathForModifiedFile falls back to changed file directo
 	);
 
 	assert.equal(resolved, "/repo/src/payments/ledger/AGENTS.md");
+});
+
+test("selectMostAppropriateAgentsPathForModifiedFiles chooses one winner by vote", () => {
+	const root = "/repo";
+	const existingAgents = new Set([
+		"/repo/src/AGENTS.md",
+		"/repo/docs/AGENTS.md",
+	]);
+
+	const selected = selectMostAppropriateAgentsPathForModifiedFiles(
+		["/repo/src/core/a.ts", "/repo/src/core/b.ts", "/repo/docs/readme.md"],
+		root,
+		(path) => existingAgents.has(path),
+	);
+
+	assert.equal(selected, "/repo/src/AGENTS.md");
+});
+
+test("selectMostAppropriateAgentsPathForModifiedFiles deprioritizes .agents paths when code paths exist", () => {
+	const root = "/repo";
+	const existingAgents = new Set([
+		"/repo/.agents/plans/AGENTS.md",
+		"/repo/pi-extensions/AGENTS.md",
+	]);
+
+	const selected = selectMostAppropriateAgentsPathForModifiedFiles(
+		[
+			"/repo/.agents/plans/20260213T000000--task__inprogress.md",
+			"/repo/.agents/plans/20260213T000000--task__progress_tracker.md",
+			"/repo/pi-extensions/learn-stuff-2.ts",
+		],
+		root,
+		(path) => existingAgents.has(path),
+	);
+
+	assert.equal(selected, "/repo/pi-extensions/AGENTS.md");
+});
+
+test("selectMostAppropriateAgentsPathForModifiedFiles allows .agents target when only .agents paths changed", () => {
+	const root = "/repo";
+	const existingAgents = new Set(["/repo/.agents/plans/AGENTS.md"]);
+
+	const selected = selectMostAppropriateAgentsPathForModifiedFiles(
+		[
+			"/repo/.agents/plans/20260213T000000--task__inprogress.md",
+			"/repo/.agents/plans/20260213T000000--task__progress_tracker.md",
+		],
+		root,
+		(path) => existingAgents.has(path),
+	);
+
+	assert.equal(selected, "/repo/.agents/plans/AGENTS.md");
+});
+
+test("selectMostAppropriateAgentsPathForModifiedFiles keeps local-create fallback", () => {
+	const root = "/repo";
+	const existingAgents = new Set(["/repo/AGENTS.md"]);
+
+	const selected = selectMostAppropriateAgentsPathForModifiedFiles(
+		["/repo/src/payments/ledger/reconcile.ts"],
+		root,
+		(path) => existingAgents.has(path),
+	);
+
+	assert.equal(selected, "/repo/src/payments/ledger/AGENTS.md");
 });
 
 test("extractLessonsSectionsFromAgentsContent collects all Lessons sections", () => {

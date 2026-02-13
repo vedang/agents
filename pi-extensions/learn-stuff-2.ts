@@ -41,6 +41,7 @@ const SKIPPED_DIRECTORIES = new Set([
 	".next",
 	".nuxt",
 ]);
+const LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS = new Set([".agents"]);
 const LESSON_STOPWORDS = new Set([
 	"a",
 	"an",
@@ -87,6 +88,13 @@ type LessonSignature = {
 	normalized: string;
 	canonicalKey: string;
 	tokens: string[];
+};
+
+type LessonsTargetScore = {
+	target: string;
+	votes: number;
+	totalDistance: number;
+	depth: number;
 };
 
 export const LEARN_STUFF_2_ADDITIONAL_CONTEXT = `${LEARN_STUFF_2_MODE_SENTINEL}, where you should include a concise lessons block alongside your normal response.
@@ -492,6 +500,91 @@ export function resolveNearestAgentsPathForModifiedFile(
 	return join(fileDirectory, "AGENTS.md");
 }
 
+function getTopLevelDirectoryWithinRoot(
+	pathValue: string,
+	projectRoot: string,
+): string | null {
+	const rel = relative(projectRoot, pathValue);
+	if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+	const [topLevel] = rel.split(/[\\/]/).filter((segment) => segment.length > 0);
+	return topLevel ?? null;
+}
+
+function countSegments(pathValue: string): number {
+	return pathValue.split(/[\\/]/).filter((segment) => segment.length > 0)
+		.length;
+}
+
+function distanceFromTargetDirectory(
+	modifiedFilePath: string,
+	targetPath: string,
+): number {
+	const sourceDirectory = dirname(resolve(modifiedFilePath));
+	const targetDirectory = dirname(resolve(targetPath));
+	const rel = relative(targetDirectory, sourceDirectory);
+	if (rel === "") return 0;
+	if (rel.startsWith("..") || isAbsolute(rel)) return Number.MAX_SAFE_INTEGER;
+	return countSegments(rel);
+}
+
+export function selectMostAppropriateAgentsPathForModifiedFiles(
+	modifiedPaths: Iterable<string>,
+	projectRoot: string,
+	hasAgentsFile: (path: string) => boolean = existsSync,
+): string | null {
+	const root = resolve(projectRoot);
+	const pathsInsideRoot = [...modifiedPaths]
+		.map((pathValue) => resolve(pathValue))
+		.filter((pathValue) => isPathInsideRoot(pathValue, root));
+	if (pathsInsideRoot.length === 0) return null;
+
+	const preferredPaths = pathsInsideRoot.filter((pathValue) => {
+		const topLevel = getTopLevelDirectoryWithinRoot(pathValue, root);
+		if (!topLevel) return true;
+		return !LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS.has(topLevel);
+	});
+
+	const scoringPaths =
+		preferredPaths.length > 0 ? preferredPaths : pathsInsideRoot;
+	const scores = new Map<string, LessonsTargetScore>();
+
+	for (const modifiedPath of scoringPaths) {
+		const target = resolveNearestAgentsPathForModifiedFile(
+			modifiedPath,
+			root,
+			hasAgentsFile,
+		);
+		const existing = scores.get(target);
+		const distance = distanceFromTargetDirectory(modifiedPath, target);
+		const depth = countSegments(dirname(target));
+		if (existing) {
+			existing.votes += 1;
+			existing.totalDistance += distance;
+			continue;
+		}
+
+		scores.set(target, {
+			target,
+			votes: 1,
+			totalDistance: distance,
+			depth,
+		});
+	}
+
+	if (scores.size === 0) return null;
+
+	const sorted = [...scores.values()].sort((left, right) => {
+		if (right.votes !== left.votes) return right.votes - left.votes;
+		if (left.totalDistance !== right.totalDistance) {
+			return left.totalDistance - right.totalDistance;
+		}
+		if (right.depth !== left.depth) return right.depth - left.depth;
+		return left.target.localeCompare(right.target);
+	});
+
+	return sorted[0]?.target ?? null; // [tag:learn_stuff_2_single_target_persistence]
+}
+
 function findProjectRoot(startDir: string): string {
 	let cursor = resolve(startDir);
 	while (true) {
@@ -676,19 +769,12 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 		if (lessons.length === 0) return;
 
 		const projectRoot = findProjectRoot(ctx.cwd);
-		const targets = new Set<string>();
-
-		for (const modifiedPath of modifiedPaths) {
-			if (!isPathInsideRoot(modifiedPath, projectRoot)) continue;
-			const target = resolveNearestAgentsPathForModifiedFile(
-				modifiedPath,
-				projectRoot,
-			);
-			targets.add(target);
-		}
-
-		if (targets.size === 0) return;
-		queuePersistence([...targets], lessons);
+		const target = selectMostAppropriateAgentsPathForModifiedFiles(
+			modifiedPaths,
+			projectRoot,
+		);
+		if (!target) return;
+		queuePersistence([target], lessons); // [ref:learn_stuff_2_single_target_persistence]
 	});
 
 	pi.registerCommand(SHOW_LESSONS_COMMAND, {
