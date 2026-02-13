@@ -523,8 +523,29 @@ function distanceFromTargetDirectory(
 	const targetDirectory = dirname(resolve(targetPath));
 	const rel = relative(targetDirectory, sourceDirectory);
 	if (rel === "") return 0;
-	if (rel.startsWith("..") || isAbsolute(rel)) return Number.MAX_SAFE_INTEGER;
+	if (rel.startsWith("..") || isAbsolute(rel)) return Number.POSITIVE_INFINITY;
 	return countSegments(rel);
+}
+
+function isDeprioritizedForLessonsTarget(
+	pathValue: string,
+	projectRoot: string,
+): boolean {
+	const topLevel = getTopLevelDirectoryWithinRoot(pathValue, projectRoot);
+	if (!topLevel) return false;
+	return LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS.has(topLevel);
+}
+
+function compareLessonsTargetScore(
+	left: LessonsTargetScore,
+	right: LessonsTargetScore,
+): number {
+	if (left.votes !== right.votes) return right.votes - left.votes;
+	if (left.totalDistance !== right.totalDistance) {
+		return left.totalDistance - right.totalDistance;
+	}
+	if (left.depth !== right.depth) return right.depth - left.depth;
+	return left.target.localeCompare(right.target);
 }
 
 export function selectMostAppropriateAgentsPathForModifiedFiles(
@@ -538,25 +559,22 @@ export function selectMostAppropriateAgentsPathForModifiedFiles(
 		.filter((pathValue) => isPathInsideRoot(pathValue, root));
 	if (pathsInsideRoot.length === 0) return null;
 
-	const preferredPaths = pathsInsideRoot.filter((pathValue) => {
-		const topLevel = getTopLevelDirectoryWithinRoot(pathValue, root);
-		if (!topLevel) return true;
-		return !LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS.has(topLevel);
-	});
-
+	const preferredPaths = pathsInsideRoot.filter(
+		(pathValue) => !isDeprioritizedForLessonsTarget(pathValue, root),
+	);
 	const scoringPaths =
 		preferredPaths.length > 0 ? preferredPaths : pathsInsideRoot;
-	const scores = new Map<string, LessonsTargetScore>();
 
+	const scores = new Map<string, LessonsTargetScore>();
 	for (const modifiedPath of scoringPaths) {
 		const target = resolveNearestAgentsPathForModifiedFile(
 			modifiedPath,
 			root,
 			hasAgentsFile,
 		);
-		const existing = scores.get(target);
 		const distance = distanceFromTargetDirectory(modifiedPath, target);
 		const depth = countSegments(dirname(target));
+		const existing = scores.get(target);
 		if (existing) {
 			existing.votes += 1;
 			existing.totalDistance += distance;
@@ -571,18 +589,14 @@ export function selectMostAppropriateAgentsPathForModifiedFiles(
 		});
 	}
 
-	if (scores.size === 0) return null;
-
-	const sorted = [...scores.values()].sort((left, right) => {
-		if (right.votes !== left.votes) return right.votes - left.votes;
-		if (left.totalDistance !== right.totalDistance) {
-			return left.totalDistance - right.totalDistance;
+	let best: LessonsTargetScore | undefined;
+	for (const score of scores.values()) {
+		if (!best || compareLessonsTargetScore(score, best) < 0) {
+			best = score;
 		}
-		if (right.depth !== left.depth) return right.depth - left.depth;
-		return left.target.localeCompare(right.target);
-	});
+	}
 
-	return sorted[0]?.target ?? null; // [tag:learn_stuff_2_single_target_persistence]
+	return best?.target ?? null; // [tag:learn_stuff_2_single_target_persistence]
 }
 
 function findProjectRoot(startDir: string): string {
@@ -678,30 +692,24 @@ function pushMessage(
 	pi.sendMessage(message, { deliverAs: "followUp", triggerTurn: false });
 }
 
-async function persistLessonsForTargets(
-	targets: string[],
+async function persistLessonsForTarget(
+	target: string,
 	lessons: string[],
 ): Promise<number> {
-	let addedCount = 0;
-
-	for (const target of targets) {
-		let existingContent = "";
-		if (existsSync(target)) {
-			existingContent = readFileSync(target, "utf-8");
-		}
-
-		const merged = mergeLessonsIntoAgentsContent(existingContent, lessons);
-		if (merged.addedCount === 0) continue;
-		addedCount += merged.addedCount;
-
-		await mkdir(dirname(target), { recursive: true });
-		const contentToWrite = merged.content.endsWith("\n")
-			? merged.content
-			: `${merged.content}\n`;
-		await writeFile(target, contentToWrite, "utf-8");
+	let existingContent = "";
+	if (existsSync(target)) {
+		existingContent = readFileSync(target, "utf-8");
 	}
 
-	return addedCount;
+	const merged = mergeLessonsIntoAgentsContent(existingContent, lessons);
+	if (merged.addedCount === 0) return 0;
+
+	await mkdir(dirname(target), { recursive: true });
+	const contentToWrite = merged.content.endsWith("\n")
+		? merged.content
+		: `${merged.content}\n`;
+	await writeFile(target, contentToWrite, "utf-8");
+	return merged.addedCount;
 }
 
 export function applyLearnStuffTwo(systemPrompt: string): string {
@@ -721,9 +729,9 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 	const pendingModifiedPaths = new Set<string>();
 	let persistenceQueue: Promise<void> = Promise.resolve();
 
-	function queuePersistence(targets: string[], lessons: string[]): void {
+	function queuePersistence(target: string, lessons: string[]): void {
 		persistenceQueue = persistenceQueue
-			.then(() => persistLessonsForTargets(targets, lessons))
+			.then(() => persistLessonsForTarget(target, lessons))
 			.catch((error) => {
 				console.error("learn-stuff-2: failed to persist lessons", error);
 			});
@@ -774,7 +782,7 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 			projectRoot,
 		);
 		if (!target) return;
-		queuePersistence([target], lessons); // [ref:learn_stuff_2_single_target_persistence]
+		queuePersistence(target, lessons); // [ref:learn_stuff_2_single_target_persistence]
 	});
 
 	pi.registerCommand(SHOW_LESSONS_COMMAND, {
@@ -838,7 +846,7 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 			}
 
 			const target = join(ctx.cwd, "AGENTS.md");
-			const added = await persistLessonsForTargets([target], [lesson]);
+			const added = await persistLessonsForTarget(target, [lesson]);
 
 			if (!ctx.hasUI) return;
 			if (added > 0) {
