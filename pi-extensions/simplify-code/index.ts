@@ -1,11 +1,10 @@
 /**
  * Simplify-Code Extension
  *
- * Loads the simplify-code prompt and triggers it after significant
- * non-markdown code changes.
+ * Tracks file changes and triggers the simplify-code prompt template
+ * after non-markdown code changes.
  */
 
-import { readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
@@ -14,12 +13,8 @@ import type {
 	ToolCallEvent,
 } from "@mariozechner/pi-coding-agent";
 
-const SIMPLIFY_CODE_COMMAND = "/simplify-code";
-export const DEFAULT_TRIGGER_REASON = "agent_end";
 const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx", ".markdown"]);
 const baseDir = dirname(fileURLToPath(import.meta.url));
-
-const PROMPT_PATH = join(baseDir, "prompt.md");
 
 function trimQuotes(value: string): string {
 	return value.trim().replace(/^['"]|['"]$/g, "");
@@ -73,16 +68,8 @@ export function extractPathsFromPatch(patchText: string): string[] {
 	return paths;
 }
 
-function loadPromptBody(): string | null {
-	const raw = readFileSync(PROMPT_PATH, "utf-8");
-	const frontmatter = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
-	const body = frontmatter ? raw.slice(frontmatter[0].length) : raw;
-	const normalized = body.trim();
-	return normalized.length > 0 ? normalized : null;
-}
-
 function isSimplifyCommand(text: string | undefined): boolean {
-	return text?.trim().toLowerCase().startsWith(SIMPLIFY_CODE_COMMAND) ?? false;
+	return text?.trim().toLowerCase().startsWith("/simplify-code") ?? false;
 }
 
 function recordPathsFromToolCall(
@@ -110,70 +97,19 @@ function recordPathsFromToolCall(
 export default function simplifyCodeExtension(pi: ExtensionAPI): void {
 	let lastInputText: string | undefined;
 	let lastInputSource: "interactive" | "rpc" | "extension" | undefined;
-	let warnedMissingPrompt = false;
-	let warnedMissingCommand = false;
 	const pendingPaths = new Set<string>();
 
-	function hasSimplifyCommand(): boolean {
-		return pi.getCommands().some((command) => command.name === "simplify-code");
-	}
-
-	function triggerSimplify(reason: string, ctx: ExtensionContext): boolean {
-		if (!hasSimplifyCommand()) {
-			if (!warnedMissingCommand && ctx.hasUI) {
-				warnedMissingCommand = true;
-				ctx.ui.notify(
-					"simplify-code hook: /simplify-code command not available",
-					"warning",
-				);
-			}
-			return false;
+	function formatPathsMessage(paths: Set<string>): string {
+		if (paths.size === 0) {
+			return "/simplify-code";
 		}
 
-		warnedMissingCommand = false;
-		const command = `${SIMPLIFY_CODE_COMMAND} ${reason}`.trim();
+		const pathList = Array.from(paths)
+			.map((p) => `  - ${p}`)
+			.join("\n");
 
-		try {
-			if (ctx.isIdle()) {
-				pi.sendUserMessage(command);
-			} else {
-				pi.sendUserMessage(command, { deliverAs: "followUp" });
-			}
-			return true;
-		} catch (error) {
-			if (ctx.hasUI) {
-				const message = error instanceof Error ? error.message : String(error);
-				ctx.ui.notify(`simplify-code hook failed: ${message}`, "warning");
-			}
-			return false;
-		}
+		return `/simplify-code The following code paths have changed:\n${pathList}`;
 	}
-
-	pi.registerCommand("simplify-code", {
-		description: "Review and simplify recently changed code",
-		handler: async (args, ctx) => {
-			const promptBody = loadPromptBody();
-			if (!promptBody) {
-				if (ctx.hasUI && !warnedMissingPrompt) {
-					warnedMissingPrompt = true;
-					ctx.ui.notify("simplify-code prompt file missing", "warning");
-				}
-				return;
-			}
-
-			warnedMissingPrompt = false;
-			pendingPaths.clear();
-			const reason = args.trim();
-			const content = reason
-				? `${promptBody}\n\nTrigger context: ${reason}`
-				: promptBody;
-			if (ctx.isIdle()) {
-				pi.sendUserMessage(content);
-			} else {
-				pi.sendUserMessage(content, { deliverAs: "followUp" });
-			}
-		},
-	});
 
 	pi.on("input", async (event) => {
 		lastInputText = event.text;
@@ -185,17 +121,32 @@ export default function simplifyCodeExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
-		if (ctx.hasPendingMessages()) return;
+		// Don't trigger if there are pending messages
+		if (ctx.hasPendingMessages()) {
+			pendingPaths.clear();
+			return;
+		}
+
+		// Avoid triggering if this was triggered by the extension itself
 		if (lastInputSource === "extension" && isSimplifyCommand(lastInputText)) {
 			pendingPaths.clear();
 			return;
 		}
+
+		// Only trigger if non-markdown files were changed
 		if (!shouldAutoTriggerSimplify(pendingPaths)) {
 			pendingPaths.clear();
 			return;
 		}
 
+		// Send the follow-up message with changed paths
+		const message = formatPathsMessage(pendingPaths);
 		pendingPaths.clear();
-		triggerSimplify(DEFAULT_TRIGGER_REASON, ctx);
+
+		if (ctx.isIdle()) {
+			pi.sendUserMessage(message);
+		} else {
+			pi.sendUserMessage(message, { deliverAs: "followUp" });
+		}
 	});
 }
