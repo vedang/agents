@@ -1,7 +1,7 @@
 ---
 name: librarian
-provider: zai-custom
-model: zai-glm-4.7
+provider: openai-codex
+model: gpt-5.3-codex-spark
 temperature: 0.9
 top_p: 0.95
 clear_thinking: false
