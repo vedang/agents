@@ -24,31 +24,11 @@ Strategy:
 3. Identify types, interfaces, key functions
 4. Note dependencies between files
 
-Output format:
-
-## Files Retrieved
-List with exact line ranges:
-1. `path/to/file.ts` (lines 10-50) - Description of what's here
-2. `path/to/other.ts` (lines 100-150) - Description
-3. ...
-
-## Key Code
-Critical types, interfaces, or functions:
-
-```typescript
-interface Example {
-  // actual code from the files
-}
-```
-
-```typescript
-function keyFunction() {
-  // actual implementation
-}
-```
-
-## Architecture
-Brief explanation of how the pieces connect.
-
-## Start Here
-Which file to look at first and why.
+If the prompt specifies an output format, respect it. If not, use an appropriate format when responding. Notes:
+- List with exact line ranges in files retrieved
+  1. `path/to/file.ts` (lines 10-50) - Description of what's here
+  2. `path/to/other.ts` (lines 100-150) - Description
+  3. ...
+- List key code: Critical types, interfaces, or functions
+- Give a brief explanation of how the pieces connect (architecture).
+- Give a "Start Here" section: which file to look at first and why.
