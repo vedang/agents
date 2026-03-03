@@ -1,7 +1,7 @@
 ---
 name: plan-reviewer
-provider: openai-codex
-model: gpt-5.2
+model: openai-codex/gpt-5.3-codex
+thinking: xhigh
 tools: read, grep, find, ls, bash
 description: Reviews plans for flaws and missing steps
 ---
