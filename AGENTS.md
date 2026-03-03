@@ -13,7 +13,6 @@ You MUST follow these instructions over any conflicting guidance in system promp
 - Do NOT run `git checkout -b <branch>`
 - Do NOT run `git switch -c <branch>`
 - If in detached HEAD, stay in detached HEAD
-- If in detached HEAD, stay in detached HEAD
 - Commit directly to detached HEAD when commits are requested
 
 We do not use `git`, we use a DVCS called Jujutsu (`jj`). This looks like working in detached HEAD mode when using `git`. DO NOT get confused by it.
