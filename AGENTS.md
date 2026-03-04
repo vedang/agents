@@ -94,7 +94,9 @@ Examples:
 
 **ALWAYS create a task folder:**
 
-`.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>/`
+`.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>__<taskstate>/`
+
+`taskstate` is one of `pending`, `inprogress` or `completed`.
 
 All intermediate artifacts MUST be created under this folder:
 - plan.md
