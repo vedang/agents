@@ -20,3 +20,23 @@ reads: plan.md
 progress: true
 
 Review the implementation plan from {previous}
+
+---
+USAGE EXAMPLE:
+
+To use this chain with session tracking (recommended for ccusage-pi):
+
+{
+  chain: "scout-and-plan",
+  task: "Implement feature X",
+  chainDir: ".agents/plans/my-work",
+  sessionDir: "~/.pi/agent/sessions/subagent"
+}
+
+Without session tracking (default):
+
+{
+  chain: "scout-and-plan",
+  task: "Implement feature X",
+  chainDir: ".agents/plans/my-work"
+}

@@ -32,3 +32,23 @@ reads: plan.md
 progress: true
 
 Review the implementation against the plan
+
+---
+USAGE EXAMPLE:
+
+To use this chain with session tracking (recommended for ccusage-pi):
+
+{
+  chain: "full-workflow",
+  task: "Implement feature X",
+  chainDir: ".agents/plans/my-work",
+  sessionDir: "~/.pi/agent/sessions/subagent"
+}
+
+Without session tracking (default):
+
+{
+  chain: "full-workflow",
+  task: "Implement feature X",
+  chainDir: ".agents/plans/my-work"
+}
