@@ -34,21 +34,15 @@ progress: true
 Review the implementation against the plan
 
 ---
-USAGE EXAMPLE:
+**Usage:**
 
-To use this chain with session tracking (recommended for ccusage-pi):
+```typescript
+// With session tracking
+{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/work", sessionDir: "~/.pi/agent/sessions/subagent" }
 
-{
-  chain: "full-workflow",
-  task: "Implement feature X",
-  chainDir: ".agents/plans/my-work",
-  sessionDir: "~/.pi/agent/sessions/subagent"
-}
+// Without session tracking
+{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/work" }
 
-Without session tracking (default):
-
-{
-  chain: "full-workflow",
-  task: "Implement feature X",
-  chainDir: ".agents/plans/my-work"
-}
+// Or use helper:
+// { ...runChain("full-workflow", "Implement X", ".agents/plans/work") }
+```

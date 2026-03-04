@@ -16,21 +16,15 @@ progress: true
 Create an implementation plan based on {previous}
 
 ---
-USAGE EXAMPLE:
+**Usage:**
 
-To use this chain with session tracking (recommended for ccusage-pi):
+```typescript
+// With session tracking
+{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/work", sessionDir: "~/.pi/agent/sessions/subagent" }
 
-{
-  chain: "quick-plan",
-  task: "Implement feature X",
-  chainDir: ".agents/plans/my-work",
-  sessionDir: "~/.pi/agent/sessions/subagent"
-}
+// Without session tracking
+{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/work" }
 
-Without session tracking (default):
-
-{
-  chain: "quick-plan",
-  task: "Implement feature X",
-  chainDir: ".agents/plans/my-work"
-}
+// Or use helper:
+// { ...runChain("quick-plan", "Implement X", ".agents/plans/work") }
+```
