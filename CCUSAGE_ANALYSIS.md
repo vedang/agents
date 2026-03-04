@@ -187,12 +187,12 @@ Subagent session file: In separate directory (not read by ccusage-pi)
 
 ### The Design Conflict
 
-| Aspect | ccusage-pi Design | Subagent Extension Design |
-|--------|------------------|---------------------------|
-| Session location | `~/.pi/agent/sessions/` | Separate per-run directories |
-| Session ownership | Flat list, no hierarchy | Isolated per subagent run |
-| Session aggregation | All sessions equal | Parent and children separate |
-| Session discovery | Glob `sessions/**/*.jsonl` | Configurable per extension |
+| Aspect              | ccusage-pi Design          | Subagent Extension Design    |
+|---------------------|----------------------------|------------------------------|
+| Session location    | `~/.pi/agent/sessions/`    | Separate per-run directories |
+| Session ownership   | Flat list, no hierarchy    | Isolated per subagent run    |
+| Session aggregation | All sessions equal         | Parent and children separate |
+| Session discovery   | Glob `sessions/**/*.jsonl` | Configurable per extension   |
 
 ### Why Both Extensions Isolate Subagent Sessions
 

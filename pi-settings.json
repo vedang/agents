@@ -22,7 +22,7 @@
   "steeringMode": "all",
   "followUpMode": "one-at-a-time",
   "hideThinkingBlock": false,
-  "theme": "dark",
+  "theme": "nightowl",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-subagents",
