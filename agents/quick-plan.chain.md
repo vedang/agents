@@ -16,15 +16,8 @@ progress: true
 Create an implementation plan based on {previous}
 
 ---
-**Usage:**
+**Usage: Always pass chainDir**
 
 ```typescript
-// With session tracking
-{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/work", sessionDir: "~/.pi/agent/sessions/subagent" }
-
-// Without session tracking
-{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/work" }
-
-// Or use helper:
-// { ...runChain("quick-plan", "Implement X", ".agents/plans/work") }
+{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
 ```

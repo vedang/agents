@@ -22,15 +22,8 @@ progress: true
 Review the implementation plan from {previous}
 
 ---
-**Usage:**
+**Usage: Always pass chainDir**
 
 ```typescript
-// With session tracking (recommended for ccusage-pi)
-{ chain: "scout-and-plan", task: "Implement X", chainDir: ".agents/plans/work", sessionDir: "~/.pi/agent/sessions/subagent" }
-
-// Without session tracking (default)
-{ chain: "scout-and-plan", task: "Implement X", chainDir: ".agents/plans/work" }
-
-// Or use helper for automatic session tracking:
-// { ...runChain("scout-and-plan", "Implement X", ".agents/plans/work") }
+{ chain: "scout-and-plan", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
 ```

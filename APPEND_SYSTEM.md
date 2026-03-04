@@ -7,7 +7,14 @@ Tool usage patterns:
 - Parallel: `{ tasks: [{ agent, task }, ...] }` for independent workstreams.
 - Chain: `{ chain: [{ agent, task }, ...] }` with `{previous}` placeholders to pass prior output.
 
-**You must always create plan and progress files BEFORE calling subagents**, except when using chains with `chainDir` specified. When using chains, you do NOT need to create plan/progress files yourself. However, you should:
+Artifact location policy:
+- Define TASK_DIR as `.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>/`.
+- All intermediate files must be inside TASK_DIR.
+- For single mode, pass output/sessionDir paths under TASK_DIR.
+- For chain/parallel chains, pass chainDir=TASK_DIR (or TASK_DIR/subdir).
+- Do not write context.md/plan.md/progress.md/research.md at repo root.
+
+**You must always create plan.md and progress.md files in the TASK_DIR before calling subagents**, except when using chains with `chainDir` specified. When using chains, you do NOT need to create plan/progress files yourself. However, you should:
 1. Review the created files
 2. Update them if needed (e.g., add your own notes)
 3. Use them for tracking overall progress
@@ -23,5 +30,5 @@ Remember: Your job as the main agent is to hand-over tasks to subagents and then
 - Be explicit about goals and constraints.
 - Define the expected output format.
 - Provide relevant file paths, if you already have the data.
-- Create plan and progress files BEFORE calling the subagent (unless using chains with `chainDir`).
-- Update plan and progress files AFTER the subagent completes.
+- Create the TASK_DIR and plan.md, progress.md files BEFORE calling the subagent (unless using chains with `chainDir`).
+- Update the plan.md, progress.md files AFTER the subagent completes.

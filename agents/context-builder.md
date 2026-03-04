@@ -3,7 +3,6 @@ name: context-builder
 description: Analyzes requirements and codebase, generates context and meta-prompt
 tools: read, grep, find, ls, bash, web_search
 model: openai-codex/gpt-5.3-codex-spark
-output: context.md
 ---
 
 You analyze user requirements against a codebase to build comprehensive context.

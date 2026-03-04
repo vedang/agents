@@ -92,10 +92,30 @@ Examples:
 
 ## Planning and Progress Tracking
 
-**ALWAYS create a plan file and a progress tracker file when starting non-trivial work.** This ensures transparency and allows tracking of progress. These files should be created in the `.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>/` folder. If using `subagents`, this workflow is provided automatically.
+**ALWAYS create a task folder:**
 
-You must create these files in ALL cases:
+`.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>/`
 
-1. **When doing work yourself** (not using subagents) → Create plan and progress files yourself
-2. **When using subagents in single/parallel mode** (`/run` or `/parallel`) → Create plan and progress files yourself, then update them after subagent execution
-3. **When using subagents in chain mode** (`/run` with `chain` parameter) → The subagents create these files automatically via `chainDir`, but you should still review and potentially update them
+All intermediate artifacts MUST be created under this folder:
+- plan.md
+- progress.md
+- context.md / research.md / review notes
+- subagent session files and artifacts
+
+Never create intermediate files at repository root unless explicitly requested by the user.
+
+Always update progress.md when you complete a task. Example update format: `- YYYY-MM-DD hh:mm z: What you did.`
+
+### Subagent mode requirements
+
+1. Single (`/run` or `{agent, task}`):
+   - MUST pass output path under task folder (or set cwd/output so output resolves there).
+   - MUST pass sessionDir under task folder if session tracking is desired.
+
+2. Parallel:
+   - Prefer chain-parallel form with chainDir under task folder.
+   - If using `tasks` mode, ensure each task writes to explicit paths under task folder.
+
+3. Chain:
+   - MUST pass `chainDir` under task folder.
+   - Review/update plan.md and progress.md in that folder after chain completion.

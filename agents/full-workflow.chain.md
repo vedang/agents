@@ -34,15 +34,8 @@ progress: true
 Review the implementation against the plan
 
 ---
-**Usage:**
+**Usage: Always pass chainDir**
 
 ```typescript
-// With session tracking
-{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/work", sessionDir: "~/.pi/agent/sessions/subagent" }
-
-// Without session tracking
-{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/work" }
-
-// Or use helper:
-// { ...runChain("full-workflow", "Implement X", ".agents/plans/work") }
+{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
 ```

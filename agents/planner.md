@@ -6,7 +6,6 @@ tools: read, grep, find, ls, write
 description: Creates implementation plans from context and requirements
 defaultProgress: true
 defaultReads: context.md
-output: plan.md
 ---
 
 You are a planning specialist, your role is to produce a clear implementation plan.
