@@ -139,5 +139,5 @@ Or don't use the helper:
 
 ## Related
 
-- [SESSION_CONFIG_GUIDE.md](../SESSION_CONFIG_GUIDE.md) - Alternative approaches
+- [SUBAGENT_SESSION_TRACKING_PLAN.md](../SUBAGENT_SESSION_TRACKING_PLAN.md) - Current investigation and recommended path
 - [CCUSAGE_ANALYSIS.md](../CCUSAGE_ANALYSIS.md) - Why session tracking matters
