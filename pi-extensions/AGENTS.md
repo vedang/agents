@@ -14,3 +14,15 @@
 - Separate state from behavior: Extensions should track state (what changed) while prompt templates define behavior (what to do)
 - Natural language beats opaque tokens: Using descriptive messages like "The following code paths have changed:" instead of "agent_end" reduces confusion
 - Make commands discoverable: Prompt templates in `prompts/` are visible and editable; extension-registered commands are hidden
+
+- Removing unused fields from helper return types can simplify both production code and tests without changing behavior.
+- Local integration types should model only the fields the code actually reads; over-declared shapes increase maintenance cost.
+- jj split` is a good way to extract a clean task commit while keeping unrelated working-copy changes intact.
+
+- For Pi extension loading, directory structure can be just as important as code correctness.
+- Co-locating tests under the extension folder makes package moves easier because imports become local and obvious.
+- Pure layout migrations are best kept in their own commit, separate from behavior changes and unrelated working-copy edits.
+
+- When a block mostly builds derived text, extracting it into a pure helper often gives the best simplification payoff.
+- Putting pure formatting helpers in `core.ts` avoids pulling test code through runtime-only Pi dependencies.
+- A good simplify pass makes orchestration code read as steps, not as a long sequence of mutable local-state updates.
