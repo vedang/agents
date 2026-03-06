@@ -31,6 +31,7 @@
     "npm:pi-subagents",
     "npm:pi-interactive-shell",
     "npm:pi-web-access",
-    "git:github.com/nicobailon/visual-explainer"
+    "git:github.com/nicobailon/visual-explainer",
+    "git:github.com/nicobailon/pi-boomerang"
   ]
 }
