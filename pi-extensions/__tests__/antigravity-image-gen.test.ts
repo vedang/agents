@@ -38,7 +38,6 @@ test("buildModelAttempts preserves explicit vertex image model requests", () => 
 		{
 			transport: "vertex",
 			model: "gemini-3-pro-image-preview",
-			responseMode: "inline-data",
 		},
 	]);
 });
@@ -50,7 +49,6 @@ test("buildModelAttempts preserves explicit antigravity model requests", () => {
 		{
 			transport: "antigravity",
 			model: "gemini-3.1-pro-high",
-			responseMode: "inline-data-or-data-uri",
 		},
 	]);
 });

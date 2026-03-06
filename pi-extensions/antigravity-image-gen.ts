@@ -110,8 +110,10 @@ interface CloudCodeAssistRequest {
 	project: string;
 	model: string;
 	request: {
-		contents: Content[];
-		sessionId?: string;
+		contents: Array<{
+			role: "user";
+			parts: Array<{ text: string }>;
+		}>;
 		generationConfig?: {
 			candidateCount?: number;
 		};
@@ -126,30 +128,10 @@ interface CloudCodeAssistResponseChunk {
 	response?: {
 		candidates?: Array<{
 			content?: {
-				role?: string;
 				parts?: ResponsePart[];
 			};
 		}>;
-		usageMetadata?: {
-			promptTokenCount?: number;
-			candidatesTokenCount?: number;
-			thoughtsTokenCount?: number;
-			totalTokenCount?: number;
-			cachedContentTokenCount?: number;
-		};
-		modelVersion?: string;
-		responseId?: string;
 	};
-	traceId?: string;
-}
-
-interface Content {
-	role: "user" | "model";
-	parts: Part[];
-}
-
-interface Part {
-	text?: string;
 }
 
 interface ResponsePart {

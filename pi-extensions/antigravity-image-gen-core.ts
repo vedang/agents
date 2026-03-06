@@ -11,7 +11,6 @@ export const DEFAULT_IMAGE_SIZE = "1K" as const;
 export type ModelAttempt = {
 	transport: "vertex" | "antigravity";
 	model: string;
-	responseMode: "inline-data" | "inline-data-or-data-uri";
 };
 
 export type VertexImageRequest = {
@@ -40,21 +39,23 @@ export function isCurrentGoogleImageModel(model: string): boolean {
 	);
 }
 
+function buildSingleModelAttempt(model: string): ModelAttempt {
+	if (isCurrentGoogleImageModel(model)) {
+		return {
+			transport: "vertex",
+			model,
+		};
+	}
+
+	return {
+		transport: "antigravity",
+		model,
+	};
+}
+
 export function buildModelAttempts(requestedModel?: string): ModelAttempt[] {
 	if (requestedModel?.trim()) {
-		return [
-			isCurrentGoogleImageModel(requestedModel)
-				? {
-						transport: "vertex",
-						model: requestedModel,
-						responseMode: "inline-data",
-					}
-				: {
-						transport: "antigravity",
-						model: requestedModel,
-						responseMode: "inline-data-or-data-uri",
-					},
-		];
+		return [buildSingleModelAttempt(requestedModel)];
 	}
 
 	return [
@@ -62,13 +63,11 @@ export function buildModelAttempts(requestedModel?: string): ModelAttempt[] {
 			(model): ModelAttempt => ({
 				transport: "vertex",
 				model,
-				responseMode: "inline-data",
 			}),
 		),
 		{
 			transport: "antigravity",
 			model: FALLBACK_ANTIGRAVITY_MODEL,
-			responseMode: "inline-data-or-data-uri",
 		},
 	];
 }
