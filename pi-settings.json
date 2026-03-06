@@ -1,8 +1,8 @@
 {
-  "lastChangelogVersion": "0.55.4",
-  "defaultProvider": "zai-custom",
-  "defaultModel": "zai-glm-4.7",
-  "defaultThinkingLevel": "off",
+  "lastChangelogVersion": "0.56.2",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.4",
+  "defaultThinkingLevel": "xhigh",
   "enabledModels": [
     "openai-codex/gpt-5.3-codex",
     "openai-codex/gpt-5.3-codex-spark",
