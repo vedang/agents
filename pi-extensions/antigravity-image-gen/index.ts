@@ -40,6 +40,7 @@ import { type Static, Type } from "@sinclair/typebox";
 
 import {
 	buildAntigravityFallbackPrompt,
+	buildGeneratedImageSummary,
 	buildModelAttempts,
 	buildVertexImageRequest,
 	extractImageDataUri,
@@ -518,27 +519,20 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 						}
 					}
 
-					const summaryParts = [
-						`Generated image via ${providerLabel}/${attempt.model}.`,
-						`Aspect ratio: ${aspectRatio}.`,
-					];
-					if (parsed.source === "data-uri") {
-						summaryParts.push(
-							"Decoded image from Antigravity text output fallback.",
-						);
-					}
-					if (savedPath) {
-						summaryParts.push(`Saved image to: ${savedPath}`);
-					} else if (saveError) {
-						summaryParts.push(`Failed to save image: ${saveError}`);
-					}
-					if (parsed.text.length > 0) {
-						summaryParts.push(`Model notes: ${parsed.text.join(" ")}`);
-					}
-
 					return {
 						content: [
-							{ type: "text", text: summaryParts.join(" ") },
+							{
+								type: "text",
+								text: buildGeneratedImageSummary({
+									providerLabel,
+									model: attempt.model,
+									aspectRatio,
+									source: parsed.source,
+									savedPath,
+									saveError,
+									textParts: parsed.text,
+								}),
+							},
 							{
 								type: "image",
 								data: parsed.image.data,

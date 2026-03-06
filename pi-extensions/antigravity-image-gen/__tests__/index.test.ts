@@ -6,6 +6,7 @@ import {
 	DEFAULT_VERTEX_IMAGE_MODEL,
 	FALLBACK_ANTIGRAVITY_MODEL,
 	buildAntigravityFallbackPrompt,
+	buildGeneratedImageSummary,
 	buildModelAttempts,
 	buildVertexImageRequest,
 	extractImageDataUri,
@@ -113,4 +114,36 @@ test("extractImageDataUri parses url-encoded data URIs", () => {
 test("imageExtension preserves svg files when svg mime types are returned", () => {
 	assert.equal(imageExtension("image/svg+xml"), "svg");
 	assert.equal(imageExtension("image/png"), "png");
+});
+
+test("buildGeneratedImageSummary includes fallback, save path, and model notes", () => {
+	const summary = buildGeneratedImageSummary({
+		providerLabel: "google-antigravity",
+		model: "gemini-3.1-pro-high",
+		aspectRatio: "1:1",
+		source: "data-uri",
+		savedPath: "/repo/.pi/generated-images/fox.svg",
+		textParts: ["A fox logo was generated."],
+	});
+
+	assert.equal(
+		summary,
+		"Generated image via google-antigravity/gemini-3.1-pro-high. Aspect ratio: 1:1. Decoded image from Antigravity text output fallback. Saved image to: /repo/.pi/generated-images/fox.svg Model notes: A fox logo was generated.",
+	);
+});
+
+test("buildGeneratedImageSummary omits optional sections when they are unavailable", () => {
+	const summary = buildGeneratedImageSummary({
+		providerLabel: "google-vertex",
+		model: "gemini-3.1-flash-image-preview",
+		aspectRatio: "16:9",
+		source: "inline-data",
+		saveError: "disk full",
+		textParts: [],
+	});
+
+	assert.equal(
+		summary,
+		"Generated image via google-vertex/gemini-3.1-flash-image-preview. Aspect ratio: 16:9. Failed to save image: disk full",
+	);
 });

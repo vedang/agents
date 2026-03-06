@@ -33,6 +33,16 @@ export type ExtractedImageDataUri = {
 	encoding: "base64" | "uri";
 };
 
+export type GeneratedImageSummaryParams = {
+	providerLabel: string;
+	model: string;
+	aspectRatio: string;
+	source: "inline-data" | "data-uri";
+	savedPath?: string;
+	saveError?: string;
+	textParts: string[];
+};
+
 export function isCurrentGoogleImageModel(model: string): boolean {
 	return CURRENT_GOOGLE_IMAGE_MODELS.includes(
 		model as (typeof CURRENT_GOOGLE_IMAGE_MODELS)[number],
@@ -134,6 +144,27 @@ export function extractImageDataUri(
 	}
 
 	return undefined;
+}
+
+export function buildGeneratedImageSummary(
+	params: GeneratedImageSummaryParams,
+): string {
+	const summaryParts = [
+		`Generated image via ${params.providerLabel}/${params.model}.`,
+		`Aspect ratio: ${params.aspectRatio}.`,
+	];
+	if (params.source === "data-uri") {
+		summaryParts.push("Decoded image from Antigravity text output fallback.");
+	}
+	if (params.savedPath) {
+		summaryParts.push(`Saved image to: ${params.savedPath}`);
+	} else if (params.saveError) {
+		summaryParts.push(`Failed to save image: ${params.saveError}`);
+	}
+	if (params.textParts.length > 0) {
+		summaryParts.push(`Model notes: ${params.textParts.join(" ")}`);
+	}
+	return summaryParts.join(" ");
 }
 
 export function imageExtension(mimeType: string): string {
