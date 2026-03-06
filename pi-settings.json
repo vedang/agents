@@ -10,12 +10,11 @@
     "zai-custom/glm-4.7",
     "zai-custom/glm-5",
     "google-antigravity/gemini-3-flash",
-    "google-antigravity/gemini-3-pro-high",
-    "google-antigravity/gemini-3-pro-low",
     "google-antigravity/claude-opus-4-5-thinking",
     "google-antigravity/claude-opus-4-6-thinking",
     "google-antigravity/claude-sonnet-4-5",
-    "google-antigravity/claude-sonnet-4-5-thinking"
+    "google-antigravity/claude-sonnet-4-5-thinking",
+    "openai-codex/gpt-5.4"
   ],
   "compaction": {
     "enabled": true,
