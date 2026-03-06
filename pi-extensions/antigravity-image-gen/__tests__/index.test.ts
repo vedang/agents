@@ -10,7 +10,7 @@ import {
 	buildVertexImageRequest,
 	extractImageDataUri,
 	imageExtension,
-} from "../antigravity-image-gen-core";
+} from "../core";
 
 test("buildModelAttempts prioritizes current Google image models before antigravity fallback", () => {
 	const attempts = buildModelAttempts();

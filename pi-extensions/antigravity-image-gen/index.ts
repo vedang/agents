@@ -44,7 +44,7 @@ import {
 	buildVertexImageRequest,
 	extractImageDataUri,
 	imageExtension,
-} from "./antigravity-image-gen-core";
+} from "./core";
 
 const PROVIDER = "google-antigravity";
 const VERTEX_PROVIDER = "google-vertex";
