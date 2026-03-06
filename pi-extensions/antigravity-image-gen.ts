@@ -1,13 +1,17 @@
 /**
  * Antigravity Image Generation
  *
- * Generates images via Google Antigravity's image models (gemini-3-pro-image, imagen-3).
+ * Generates images with Google's current image models when possible.
+ *
+ * Strategy:
+ * 1. Try current Google image models through Vertex AI using the same
+ *    google-antigravity OAuth token/project.
+ * 2. If Vertex AI is unavailable for the project, fall back to the current
+ *    Antigravity-accessible model and reconstruct a self-contained image from
+ *    a returned data URI.
+ *
  * Returns images as tool result attachments for inline terminal rendering.
  * Requires OAuth login via /login for google-antigravity.
- *
- * Usage:
- *   "Generate an image of a sunset over mountains"
- *   "Create a 16:9 wallpaper of a cyberpunk city"
  *
  * Save modes (tool param, env var, or config file):
  *   save=none     - Don't save to disk (default)
@@ -34,7 +38,16 @@ import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
 
+import {
+	buildAntigravityFallbackPrompt,
+	buildModelAttempts,
+	buildVertexImageRequest,
+	extractImageDataUri,
+	imageExtension,
+} from "./antigravity-image-gen-core";
+
 const PROVIDER = "google-antigravity";
+const VERTEX_PROVIDER = "google-vertex";
 
 const ASPECT_RATIOS = [
 	"1:1",
@@ -51,7 +64,6 @@ const ASPECT_RATIOS = [
 
 type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
-const DEFAULT_MODEL = "gemini-3-pro-image";
 const DEFAULT_ASPECT_RATIO: AspectRatio = "1:1";
 const DEFAULT_SAVE_MODE = "none";
 
@@ -60,9 +72,12 @@ type SaveMode = (typeof SAVE_MODES)[number];
 
 const ANTIGRAVITY_ENDPOINT =
 	"https://daily-cloudcode-pa.sandbox.googleapis.com";
+const VERTEX_ENDPOINT = "https://aiplatform.googleapis.com";
+const VERTEX_LOCATION = "global";
+const DEFAULT_ANTIGRAVITY_VERSION = "1.18.3";
 
 const ANTIGRAVITY_HEADERS = {
-	"User-Agent": "antigravity/1.15.8 darwin/arm64",
+	"User-Agent": `antigravity/${process.env.PI_AI_ANTIGRAVITY_VERSION || DEFAULT_ANTIGRAVITY_VERSION} darwin/arm64`,
 	"X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
 	"Client-Metadata": JSON.stringify({
 		ideType: "IDE_UNSPECIFIED",
@@ -71,15 +86,12 @@ const ANTIGRAVITY_HEADERS = {
 	}),
 };
 
-const IMAGE_SYSTEM_INSTRUCTION =
-	"You are an AI image generator. Generate images based on user descriptions. Focus on creating high-quality, visually appealing images that match the user's request.";
-
 const TOOL_PARAMS = Type.Object({
 	prompt: Type.String({ description: "Image description." }),
 	model: Type.Optional(
 		Type.String({
 			description:
-				"Image model id (e.g., gemini-3-pro-image, imagen-3). Default: gemini-3-pro-image.",
+				"Optional model override. Current Google image models are tried via Vertex AI first; unsupported values fall back to Antigravity behavior.",
 		}),
 	),
 	aspectRatio: Type.Optional(StringEnum(ASPECT_RATIOS)),
@@ -100,11 +112,7 @@ interface CloudCodeAssistRequest {
 	request: {
 		contents: Content[];
 		sessionId?: string;
-		systemInstruction?: { role?: string; parts: { text: string }[] };
 		generationConfig?: {
-			maxOutputTokens?: number;
-			temperature?: number;
-			imageConfig?: { aspectRatio?: string };
 			candidateCount?: number;
 		};
 		safetySettings?: Array<{ category: string; threshold: string }>;
@@ -118,14 +126,8 @@ interface CloudCodeAssistResponseChunk {
 	response?: {
 		candidates?: Array<{
 			content?: {
-				role: string;
-				parts?: Array<{
-					text?: string;
-					inlineData?: {
-						mimeType?: string;
-						data?: string;
-					};
-				}>;
+				role?: string;
+				parts?: ResponsePart[];
 			};
 		}>;
 		usageMetadata?: {
@@ -148,8 +150,16 @@ interface Content {
 
 interface Part {
 	text?: string;
+}
+
+interface ResponsePart {
+	text?: string;
 	inlineData?: {
 		mimeType?: string;
+		data?: string;
+	};
+	inline_data?: {
+		mime_type?: string;
 		data?: string;
 	};
 }
@@ -167,6 +177,12 @@ interface ExtensionConfig {
 interface SaveConfig {
 	mode: SaveMode;
 	outputDir?: string;
+}
+
+interface ParsedImageResult {
+	image: { data: string; mimeType: string };
+	text: string[];
+	source: "inline-data" | "data-uri";
 }
 
 function parseOAuthCredentials(raw: string): ParsedCredentials {
@@ -245,14 +261,6 @@ function resolveSaveConfig(params: ToolParams, cwd: string): SaveConfig {
 	return { mode };
 }
 
-function imageExtension(mimeType: string): string {
-	const lower = mimeType.toLowerCase();
-	if (lower.includes("jpeg") || lower.includes("jpg")) return "jpg";
-	if (lower.includes("gif")) return "gif";
-	if (lower.includes("webp")) return "webp";
-	return "png";
-}
-
 async function saveImage(
 	base64Data: string,
 	mimeType: string,
@@ -267,11 +275,10 @@ async function saveImage(
 	return filePath;
 }
 
-function buildRequest(
+function buildAntigravityRequest(
 	prompt: string,
 	model: string,
 	projectId: string,
-	aspectRatio: string,
 ): CloudCodeAssistRequest {
 	return {
 		project: projectId,
@@ -283,11 +290,7 @@ function buildRequest(
 					parts: [{ text: prompt }],
 				},
 			],
-			systemInstruction: {
-				parts: [{ text: IMAGE_SYSTEM_INSTRUCTION }],
-			},
 			generationConfig: {
-				imageConfig: { aspectRatio },
 				candidateCount: 1,
 			},
 			safetySettings: [
@@ -313,10 +316,39 @@ function buildRequest(
 	};
 }
 
+function buildVertexUrl(projectId: string, model: string): string {
+	return `${VERTEX_ENDPOINT}/v1/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${model}:streamGenerateContent?alt=sse`;
+}
+
+function extractInlineImage(
+	part: ResponsePart,
+): { data: string; mimeType: string } | undefined {
+	if (part.inlineData?.data) {
+		return {
+			data: part.inlineData.data,
+			mimeType: part.inlineData.mimeType || "image/png",
+		};
+	}
+	if (part.inline_data?.data) {
+		return {
+			data: part.inline_data.data,
+			mimeType: part.inline_data.mime_type || "image/png",
+		};
+	}
+	return undefined;
+}
+
+function dataUriToBase64(data: string, encoding: "base64" | "uri"): string {
+	if (encoding === "base64") {
+		return data;
+	}
+	return Buffer.from(decodeURIComponent(data), "utf-8").toString("base64");
+}
+
 async function parseSseForImage(
 	response: Response,
 	signal?: AbortSignal,
-): Promise<{ image: { data: string; mimeType: string }; text: string[] }> {
+): Promise<ParsedImageResult> {
 	if (!response.body) {
 		throw new Error("No response body");
 	}
@@ -361,14 +393,13 @@ async function parseSseForImage(
 						if (part.text) {
 							textParts.push(part.text);
 						}
-						if (part.inlineData?.data) {
+						const inlineImage = extractInlineImage(part);
+						if (inlineImage) {
 							await reader.cancel();
 							return {
-								image: {
-									data: part.inlineData.data,
-									mimeType: part.inlineData.mimeType || "image/png",
-								},
+								image: inlineImage,
 								text: textParts,
+								source: "inline-data",
 							};
 						}
 					}
@@ -379,7 +410,27 @@ async function parseSseForImage(
 		reader.releaseLock();
 	}
 
+	const extracted = extractImageDataUri(textParts.join(""));
+	if (extracted) {
+		return {
+			image: {
+				data: dataUriToBase64(extracted.data, extracted.encoding),
+				mimeType: extracted.mimeType,
+			},
+			text: textParts,
+			source: "data-uri",
+		};
+	}
+
 	throw new Error("No image data returned by the model");
+}
+
+function isVertexUnavailableError(message: string): boolean {
+	return (
+		message.includes("Vertex AI API has not been used in project") ||
+		message.includes("aiplatform.googleapis.com/overview") ||
+		message.includes("PERMISSION_DENIED")
+	);
 }
 
 async function getCredentials(ctx: {
@@ -401,96 +452,144 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 		name: "generate_image",
 		label: "Generate image",
 		description:
-			"Generate an image via Google Antigravity image models. Returns the image as a tool result attachment. Optional saving via save=project|global|custom|none, or PI_IMAGE_SAVE_MODE/PI_IMAGE_SAVE_DIR.",
+			"Generate an image via Google's current image models using Antigravity OAuth. Tries Vertex AI image models first and falls back to Antigravity-compatible output when needed. Optional saving via save=project|global|custom|none.",
 		parameters: TOOL_PARAMS,
 		async execute(_toolCallId, params: ToolParams, signal, onUpdate, ctx) {
 			const { accessToken, projectId } = await getCredentials(ctx);
-			const model = params.model || DEFAULT_MODEL;
 			const aspectRatio = params.aspectRatio || DEFAULT_ASPECT_RATIO;
+			const attempts = buildModelAttempts(params.model);
+			const errors: string[] = [];
+			let skipRemainingVertexAttempts = false;
 
-			const requestBody = buildRequest(
-				params.prompt,
-				model,
-				projectId,
-				aspectRatio,
-			);
-			onUpdate?.({
-				content: [
-					{
-						type: "text",
-						text: `Requesting image from ${PROVIDER}/${model}...`,
+			for (const [index, attempt] of attempts.entries()) {
+				if (attempt.transport === "vertex" && skipRemainingVertexAttempts) {
+					continue;
+				}
+
+				const providerLabel =
+					attempt.transport === "vertex" ? VERTEX_PROVIDER : PROVIDER;
+				onUpdate?.({
+					content: [
+						{
+							type: "text",
+							text: `Attempt ${index + 1}/${attempts.length}: requesting image from ${providerLabel}/${attempt.model}...`,
+						},
+					],
+					details: {
+						provider: providerLabel,
+						model: attempt.model,
+						aspectRatio,
+						transport: attempt.transport,
 					},
-				],
-				details: { provider: PROVIDER, model, aspectRatio },
-			});
+				});
 
-			const response = await fetch(
-				`${ANTIGRAVITY_ENDPOINT}/v1internal:streamGenerateContent?alt=sse`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-						Accept: "text/event-stream",
-						...ANTIGRAVITY_HEADERS,
-					},
-					body: JSON.stringify(requestBody),
-					signal,
-				},
-			);
+				const url =
+					attempt.transport === "vertex"
+						? buildVertexUrl(projectId, attempt.model)
+						: `${ANTIGRAVITY_ENDPOINT}/v1internal:streamGenerateContent?alt=sse`;
+				const requestBody =
+					attempt.transport === "vertex"
+						? buildVertexImageRequest(params.prompt, aspectRatio)
+						: buildAntigravityRequest(
+								// [ref:antigravity_vertex_image_fallback]
+								buildAntigravityFallbackPrompt(params.prompt, aspectRatio),
+								attempt.model,
+								projectId,
+							);
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Image request failed (${response.status}): ${errorText}`,
-				);
-			}
-
-			const parsed = await parseSseForImage(response, signal);
-			const saveConfig = resolveSaveConfig(params, ctx.cwd);
-			let savedPath: string | undefined;
-			let saveError: string | undefined;
-			if (saveConfig.mode !== "none" && saveConfig.outputDir) {
 				try {
-					savedPath = await saveImage(
-						parsed.image.data,
-						parsed.image.mimeType,
-						saveConfig.outputDir,
-					);
+					const response = await fetch(url, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Content-Type": "application/json",
+							Accept: "text/event-stream",
+							...(attempt.transport === "antigravity"
+								? ANTIGRAVITY_HEADERS
+								: undefined),
+						},
+						body: JSON.stringify(requestBody),
+						signal,
+					});
+
+					if (!response.ok) {
+						const errorText = await response.text();
+						throw new Error(
+							`Image request failed (${response.status}): ${errorText}`,
+						);
+					}
+
+					const parsed = await parseSseForImage(response, signal);
+					const saveConfig = resolveSaveConfig(params, ctx.cwd);
+					let savedPath: string | undefined;
+					let saveError: string | undefined;
+					if (saveConfig.mode !== "none" && saveConfig.outputDir) {
+						try {
+							savedPath = await saveImage(
+								parsed.image.data,
+								parsed.image.mimeType,
+								saveConfig.outputDir,
+							);
+						} catch (error) {
+							saveError =
+								error instanceof Error ? error.message : String(error);
+						}
+					}
+
+					const summaryParts = [
+						`Generated image via ${providerLabel}/${attempt.model}.`,
+						`Aspect ratio: ${aspectRatio}.`,
+					];
+					if (parsed.source === "data-uri") {
+						summaryParts.push(
+							"Decoded image from Antigravity text output fallback.",
+						);
+					}
+					if (savedPath) {
+						summaryParts.push(`Saved image to: ${savedPath}`);
+					} else if (saveError) {
+						summaryParts.push(`Failed to save image: ${saveError}`);
+					}
+					if (parsed.text.length > 0) {
+						summaryParts.push(`Model notes: ${parsed.text.join(" ")}`);
+					}
+
+					return {
+						content: [
+							{ type: "text", text: summaryParts.join(" ") },
+							{
+								type: "image",
+								data: parsed.image.data,
+								mimeType: parsed.image.mimeType,
+							},
+						],
+						details: {
+							provider: providerLabel,
+							model: attempt.model,
+							aspectRatio,
+							savedPath,
+							saveMode: saveConfig.mode,
+							transport: attempt.transport,
+							source: parsed.source,
+						},
+					};
 				} catch (error) {
-					saveError = error instanceof Error ? error.message : String(error);
+					const message =
+						error instanceof Error ? error.message : String(error);
+					errors.push(`${providerLabel}/${attempt.model}: ${message}`);
+					if (
+						attempt.transport === "vertex" &&
+						// [ref:antigravity_vertex_image_fallback]
+						isVertexUnavailableError(message)
+					) {
+						skipRemainingVertexAttempts = true;
+					}
 				}
 			}
-			const summaryParts = [
-				`Generated image via ${PROVIDER}/${model}.`,
-				`Aspect ratio: ${aspectRatio}.`,
-			];
-			if (savedPath) {
-				summaryParts.push(`Saved image to: ${savedPath}`);
-			} else if (saveError) {
-				summaryParts.push(`Failed to save image: ${saveError}`);
-			}
-			if (parsed.text.length > 0) {
-				summaryParts.push(`Model notes: ${parsed.text.join(" ")}`);
-			}
 
-			return {
-				content: [
-					{ type: "text", text: summaryParts.join(" ") },
-					{
-						type: "image",
-						data: parsed.image.data,
-						mimeType: parsed.image.mimeType,
-					},
-				],
-				details: {
-					provider: PROVIDER,
-					model,
-					aspectRatio,
-					savedPath,
-					saveMode: saveConfig.mode,
-				},
-			};
+			throw new Error(
+				`Image generation failed after ${attempts.length} attempt(s). ${errors.join(" ")}`,
+			);
 		},
 	});
 }
