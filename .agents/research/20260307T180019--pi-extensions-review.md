@@ -12,14 +12,14 @@ I have **not** runtime-tested these here; this is based on reading the code.
 
 ## Quick triage
 
-| Extension | Main purpose | Trigger surface | Dependency level | My pruning-oriented read |
-| --- | --- | --- | --- | --- |
-| `pi-extensions/learn-stuff-2.ts` | Force a lessons block into responses and persist lessons into `AGENTS.md` | `before_agent_start`, `tool_call`, `agent_end`, two commands | High | Powerful, but only useful if you want the lessons workflow and the model consistently follows the format |
-| `pi-extensions/loop.ts` | Re-run the agent until a breakout condition is met | `/loop`, `agent_end`, custom tool, compaction/session hooks | High | Sophisticated and useful, but one of the easiest to misconfigure or find surprising |
-| `pi-extensions/notify.ts` | Native terminal notification when Pi is ready again | `agent_end` | Low | Very likely to work if your terminal supports the chosen protocol; simple keep/prune decision |
-| `pi-extensions/protected-paths.ts` | Block writes to sensitive paths | `tool_call` for `write`/`edit` | Low | Simple and likely effective, but matching logic is intentionally crude |
-| `pi-extensions/status-line.ts` | Show a demo status line with turn progress | session + turn events | Low | Looks like a demo/example more than a must-keep extension |
-| `pi-extensions/todo.ts` | Add an LLM-managed todo tool and `/todos` viewer | custom tool + `/todos` + session events | Medium | Nice example, probably useful if you want branch-aware todos; otherwise redundant noise |
+| Extension                          | Main purpose                                                              | Trigger surface                                              | Dependency level | My pruning-oriented read                                                                                 |
+|------------------------------------|---------------------------------------------------------------------------|--------------------------------------------------------------|------------------|----------------------------------------------------------------------------------------------------------|
+| `pi-extensions/learn-stuff-2.ts`   | Force a lessons block into responses and persist lessons into `AGENTS.md` | `before_agent_start`, `tool_call`, `agent_end`, two commands | High             | Powerful, but only useful if you want the lessons workflow and the model consistently follows the format |
+| `pi-extensions/loop.ts`            | Re-run the agent until a breakout condition is met                        | `/loop`, `agent_end`, custom tool, compaction/session hooks  | High             | Sophisticated and useful, but one of the easiest to misconfigure or find surprising                      |
+| `pi-extensions/notify.ts`          | Native terminal notification when Pi is ready again                       | `agent_end`                                                  | Low              | Very likely to work if your terminal supports the chosen protocol; simple keep/prune decision            |
+| `pi-extensions/protected-paths.ts` | Block writes to sensitive paths                                           | `tool_call` for `write`/`edit`                               | Low              | Simple and likely effective, but matching logic is intentionally crude                                   |
+| `pi-extensions/status-line.ts`     | Show a demo status line with turn progress                                | session + turn events                                        | Low              | Looks like a demo/example more than a must-keep extension                                                |
+| `pi-extensions/todo.ts`            | Add an LLM-managed todo tool and `/todos` viewer                          | custom tool + `/todos` + session events                      | Medium           | Nice example, probably useful if you want branch-aware todos; otherwise redundant noise                  |
 
 ---
 

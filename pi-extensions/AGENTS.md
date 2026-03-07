@@ -30,3 +30,7 @@
 - When a function only handles a fixed small number of cases, specialized branching is often clearer than a generic collection-based approach.
 - Mode resolution code is easier to reason about when “invalid input fallback” happens once up front.
 - Simplification is highest-value when it preserves behavior while deleting state, loops, or bookkeeping structures.
+
+- Named decision helpers are often the best way to simplify lifecycle-heavy code without changing behavior.
+- Regression tests are easier to maintain when scenario constants replace repeated magic values.
+- A simplify pass is highest-value when it keeps the fix intact and only reduces branching/duplication.
