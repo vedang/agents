@@ -1,6 +1,6 @@
 ---
 name: full-workflow
-description: Complete workflow: gather context, plan, implement, and review
+description: Gather context, create a plan, implement it, and run a review pass. The main agent still owns tests and commits.
 ---
 
 ## scout
@@ -31,11 +31,7 @@ Implement the plan from {previous}
 reads: plan.md
 progress: true
 
-Review the implementation against the plan
+Review the implementation against the plan and fix any issues that do not require new or changed tests
 
 ---
-**Usage: Always pass chainDir**
-
-```typescript
-{ chain: "full-workflow", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
-```
+Usage: pass `chainDir`. This chain assumes the main agent handles any needed failing tests and the final commit.

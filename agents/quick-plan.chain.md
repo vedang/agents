@@ -1,6 +1,6 @@
 ---
 name: quick-plan
-description: Quickly gather context and create a plan (without review)
+description: Quickly gather context and create a plan without a review pass
 ---
 
 ## scout
@@ -16,8 +16,4 @@ progress: true
 Create an implementation plan based on {previous}
 
 ---
-**Usage: Always pass chainDir**
-
-```typescript
-{ chain: "quick-plan", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
-```
+Usage: pass `chainDir`.

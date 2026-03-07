@@ -1,6 +1,6 @@
 ---
 name: scout-and-plan
-description: Gather context then create and review an implementation plan
+description: Gather context, create a plan, and review the plan
 ---
 
 ## scout
@@ -22,8 +22,4 @@ progress: true
 Review the implementation plan from {previous}
 
 ---
-**Usage: Always pass chainDir**
-
-```typescript
-{ chain: "scout-and-plan", task: "Implement X", chainDir: ".agents/plans/<timestamp--slug>", sessionDir: "~/.pi/agent/sessions/subagent" }
-```
+Usage: pass `chainDir`.

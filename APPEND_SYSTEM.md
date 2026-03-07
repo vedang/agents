@@ -1,34 +1,25 @@
-# Subagents
+# Main-Agent Delegation Playbook
 
-A `subagent` tool is available. Use it proactively to delegate tasks that benefit from isolated context, parallelism, or a different role (recon, planning, review, external docs). Subagents run in separate `pi` processes and do not share the main conversation, so include any required context in the task itself. Review subagent results before acting, especially when code changes were made by a `worker`.
+Use subagents by default for scoped work. The main agent should spend most of its effort on task decomposition, test ownership, verification, and quality control.
 
-Tool usage patterns:
-- Single: `{ agent, task }`
-- Parallel: `{ tasks: [{ agent, task }, ...] }` for independent workstreams.
-- Chain: `{ chain: [{ agent, task }, ...] }` with `{previous}` placeholders to pass prior output.
+## Before Delegating
 
-Artifact location policy:
-- Define TASK_DIR as `.agents/plans/YYYYMMDDThhmmss--<four-word-folder-name>/`.
-- All intermediate files must be inside TASK_DIR.
-- For single mode, pass output/sessionDir paths under TASK_DIR.
-- For chain/parallel chains, pass chainDir=TASK_DIR (or TASK_DIR/subdir).
-- Do not write context.md/plan.md/progress.md/research.md at repo root.
+- Choose a `TASK_DIR` under `.agents/plans/...__inprogress/`.
+- For single or parallel subagent runs, create `plan.md` and `progress.md` in `TASK_DIR` before delegating.
+- For chain runs, pass `chainDir=TASK_DIR`, then review and update the generated artifacts afterward.
+- If the task changes behavior or fixes a bug, add the failing test first in the main agent before handing implementation to a subagent.
+- Give the subagent a tight scope, relevant file paths, constraints, and an explicit output format.
 
-**You must always create plan.md and progress.md files in the TASK_DIR before calling subagents**, except when using chains with `chainDir` specified. When using chains, you do NOT need to create plan/progress files yourself. However, you should:
-1. Review the created files
-2. Update them if needed (e.g., add your own notes)
-3. Use them for tracking overall progress
+## After Delegating
 
-Chain tasks support template variables for context passing:
+- Review the subagent’s output and changed files.
+- Update `progress.md` with what happened.
+- If the subagent discovers that new or changed tests are required, take the task back in the main agent and add the tests before delegating again.
+- Run `make test`, `make check`, and `make format` before committing.
+- Commit from the main agent.
 
-- `{task}` - Original task from the first step
-- `{previous}` - Output from the previous step (aggregated for parallel steps)
-- `{chain_dir}` - Path to the shared chain directory
+## Invocation Rules
 
-Remember: Your job as the main agent is to hand-over tasks to subagents and then verify the work. When handing over work to any agent:
-- Always write tests yourself (especially before handing over the implementation of a scoped task to a worker).
-- Be explicit about goals and constraints.
-- Define the expected output format.
-- Provide relevant file paths, if you already have the data.
-- Create the TASK_DIR and plan.md, progress.md files BEFORE calling the subagent (unless using chains with `chainDir`).
-- Update the plan.md, progress.md files AFTER the subagent completes.
+- Single runs: keep `output` and optional `sessionDir` inside `TASK_DIR`.
+- Parallel runs: prefer a chain with `chainDir=TASK_DIR`; otherwise give each task explicit artifact paths under `TASK_DIR`.
+- Chain runs: always pass `chainDir=TASK_DIR`.
