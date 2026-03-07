@@ -33,7 +33,6 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 | `│  ├─ implement-plan.md`           | Executes plans task-by-task via chained subagents.                 |
 | `│  ├─ explain-codebase.md`         | Delegates interactive codebase explainer generation to playground. |
 | `├─ pi-extensions/`                 | Runtime extensions that add commands/tools/UI behaviors.           |
-| `│  ├─ subagent/`                   | Runs delegated agents in single, parallel, or chain mode.          |
 | `│  ├─ quizme/`                     | Quizzes understanding of session changes and grades answers.       |
 | `│  ├─ simplify-code/`              | Refines changed code while preserving behavior.                    |
 | `│  ├─ antigravity-image-gen.ts`    | Adds image generation via Antigravity models.                      |
@@ -41,13 +40,17 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 | `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.             |
 | `│  ├─ handoff.ts`                  | Builds focused handoff prompts for new sessions.                   |
 | `│  ├─ learn-stuff/`               | Adds mandatory lessons-block output style with persistence hooks.  |
-| `│  ├─ loop.ts`                     | Repeats follow-up turns until breakout conditions are met.         |
 | `│  ├─ mac-system-theme.ts`         | Syncs Pi theme with macOS light/dark mode.                         |
 | `│  ├─ notify.ts`                   | Sends terminal-native notifications when the agent is done.        |
-| `│  ├─ protected-paths.ts`          | Blocks write/edit calls to sensitive paths.                        |
-| `│  ├─ questionnaire.ts`            | Asks single or multi-question interactive prompts.                 |
 | `│  ├─ status-line.ts`              | Shows persistent footer status updates across turns.               |
-| `│  ├─ todo.ts`                     | Adds branch-aware todos plus a `/todos` viewer.                    |
+| `├─ pi-packages/`                   | External packages loaded via pi-settings.json.                     |
+| `│  ├─ pi-askuserquestion`          | Interactive question prompts via `ask_user_question` tool.         |
+| `│  ├─ pi-subagents`                | Scout, planner, worker, reviewer subagent definitions.             |
+| `│  ├─ pi-interactive-shell`        | Run interactive CLI agents in overlay TUI.                         |
+| `│  ├─ pi-web-access`               | Web search, fetch content, librarian research skill.               |
+| `│  ├─ visual-explainer`            | Generate HTML pages to visually explain systems/data.              |
+| `│  ├─ pi-boomerang`                | Token-efficient context collapsing for large tasks.                |
+| `│  ├─ pi-read-map`                 | Enhanced file reading with structure maps for large files.         |
 | `├─ skills/`                        | Optional skill packages for specialized capabilities.              |
 | `│  ├─ dev-browser/`                | Persistent browser automation workflows and helpers.               |
 | `│  ├─ docx/`                       | Creates, edits, and analyzes Word `.docx` documents.               |
