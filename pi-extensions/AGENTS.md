@@ -26,3 +26,7 @@
 - When a block mostly builds derived text, extracting it into a pure helper often gives the best simplification payoff.
 - Putting pure formatting helpers in `core.ts` avoids pulling test code through runtime-only Pi dependencies.
 - A good simplify pass makes orchestration code read as steps, not as a long sequence of mutable local-state updates.
+
+- When a function only handles a fixed small number of cases, specialized branching is often clearer than a generic collection-based approach.
+- Mode resolution code is easier to reason about when “invalid input fallback” happens once up front.
+- Simplification is highest-value when it preserves behavior while deleting state, loops, or bookkeeping structures.
