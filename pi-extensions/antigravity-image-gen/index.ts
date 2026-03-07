@@ -29,11 +29,13 @@
  *   Example: { "save": "global" }
  */
 
+import { execFile as execFileCallback } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
@@ -45,6 +47,8 @@ import {
 	buildVertexImageRequest,
 	extractImageDataUri,
 	imageExtension,
+	prepareToolResultImage,
+	type ImagePayload,
 } from "./core";
 
 const PROVIDER = "google-antigravity";
@@ -86,6 +90,8 @@ const ANTIGRAVITY_HEADERS = {
 		pluginType: "GEMINI",
 	}),
 };
+
+const execFile = promisify(execFileCallback);
 
 const TOOL_PARAMS = Type.Object({
 	prompt: Type.String({ description: "Image description." }),
@@ -163,7 +169,7 @@ interface SaveConfig {
 }
 
 interface ParsedImageResult {
-	image: { data: string; mimeType: string };
+	image: ImagePayload;
 	text: string[];
 	source: "inline-data" | "data-uri";
 }
@@ -256,6 +262,95 @@ async function saveImage(
 	const filePath = join(outputDir, filename);
 	await writeFile(filePath, Buffer.from(base64Data, "base64"));
 	return filePath;
+}
+
+interface SvgRasterizer {
+	command: string;
+	buildArgs: (
+		inputPath: string,
+		outputPath: string,
+		workDir: string,
+	) => string[];
+	resolveOutputPath?: (
+		inputPath: string,
+		outputPath: string,
+		workDir: string,
+	) => string;
+}
+
+const SVG_RASTERIZERS: SvgRasterizer[] = [
+	{
+		command: "rsvg-convert",
+		buildArgs: (inputPath, outputPath) => [inputPath, "-o", outputPath],
+	},
+	{
+		command: "magick",
+		buildArgs: (inputPath, outputPath) => [inputPath, outputPath],
+	},
+	{
+		command: "convert",
+		buildArgs: (inputPath, outputPath) => [inputPath, outputPath],
+	},
+	{
+		command: "inkscape",
+		buildArgs: (inputPath, outputPath) => [
+			inputPath,
+			"--export-type=png",
+			`--export-filename=${outputPath}`,
+		],
+	},
+	{
+		command: "qlmanage",
+		buildArgs: (inputPath, _outputPath, workDir) => [
+			"-t",
+			"-s",
+			"1024",
+			"-o",
+			workDir,
+			inputPath,
+		],
+		resolveOutputPath: (inputPath, _outputPath, workDir) =>
+			join(workDir, `${inputPath.split("/").pop()}.png`),
+	},
+];
+
+async function rasterizeSvgToPng(
+	image: ImagePayload,
+): Promise<ImagePayload | undefined> {
+	const workDir = await mkdtemp(join(tmpdir(), "pi-antigravity-image-"));
+	const inputPath = join(workDir, "image.svg");
+	const outputPath = join(workDir, "image.png");
+
+	try {
+		await writeFile(inputPath, Buffer.from(image.data, "base64"));
+
+		for (const rasterizer of SVG_RASTERIZERS) {
+			const resolvedOutputPath =
+				rasterizer.resolveOutputPath?.(inputPath, outputPath, workDir) ||
+				outputPath;
+			try {
+				await execFile(
+					rasterizer.command,
+					rasterizer.buildArgs(inputPath, outputPath, workDir),
+					{
+						timeout: 15_000,
+						maxBuffer: 10 * 1024 * 1024,
+					},
+				);
+				const pngBytes = await readFile(resolvedOutputPath);
+				if (pngBytes.length > 0) {
+					return {
+						mimeType: "image/png",
+						data: pngBytes.toString("base64"),
+					};
+				}
+			} catch {}
+		}
+
+		return undefined;
+	} finally {
+		await rm(workDir, { recursive: true, force: true });
+	}
 }
 
 function buildAntigravityRequest(
@@ -503,14 +598,19 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 					}
 
 					const parsed = await parseSseForImage(response, signal);
+					const preparedImage = await prepareToolResultImage(
+						parsed.image,
+						// [ref:antigravity_svg_fallback_requires_raster_preview]
+						rasterizeSvgToPng,
+					);
 					const saveConfig = resolveSaveConfig(params, ctx.cwd);
 					let savedPath: string | undefined;
 					let saveError: string | undefined;
 					if (saveConfig.mode !== "none" && saveConfig.outputDir) {
 						try {
 							savedPath = await saveImage(
-								parsed.image.data,
-								parsed.image.mimeType,
+								preparedImage.savedImage.data,
+								preparedImage.savedImage.mimeType,
 								saveConfig.outputDir,
 							);
 						} catch (error) {
@@ -531,12 +631,14 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 									savedPath,
 									saveError,
 									textParts: parsed.text,
+									previewMode: preparedImage.previewMode,
+									originalMimeType: preparedImage.originalMimeType,
 								}),
 							},
 							{
 								type: "image",
-								data: parsed.image.data,
-								mimeType: parsed.image.mimeType,
+								data: preparedImage.attachmentImage.data,
+								mimeType: preparedImage.attachmentImage.mimeType,
 							},
 						],
 						details: {
@@ -547,6 +649,10 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 							saveMode: saveConfig.mode,
 							transport: attempt.transport,
 							source: parsed.source,
+							previewMode: preparedImage.previewMode,
+							attachmentMimeType: preparedImage.attachmentImage.mimeType,
+							originalMimeType: preparedImage.originalMimeType,
+							savedMimeType: preparedImage.savedImage.mimeType,
 						},
 					};
 				} catch (error) {

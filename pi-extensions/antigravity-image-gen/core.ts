@@ -27,10 +27,24 @@ export type VertexImageRequest = {
 	};
 };
 
+export type ImagePayload = {
+	mimeType: string;
+	data: string;
+};
+
 export type ExtractedImageDataUri = {
 	mimeType: string;
 	data: string;
 	encoding: "base64" | "uri";
+};
+
+export type ToolImagePreviewMode = "native" | "rasterized-svg" | "raw-svg";
+
+export type PreparedToolResultImage = {
+	savedImage: ImagePayload;
+	attachmentImage: ImagePayload;
+	previewMode: ToolImagePreviewMode;
+	originalMimeType?: string;
 };
 
 export type GeneratedImageSummaryParams = {
@@ -41,6 +55,8 @@ export type GeneratedImageSummaryParams = {
 	savedPath?: string;
 	saveError?: string;
 	textParts: string[];
+	previewMode?: ToolImagePreviewMode;
+	originalMimeType?: string;
 };
 
 export function isCurrentGoogleImageModel(model: string): boolean {
@@ -103,6 +119,11 @@ export function buildVertexImageRequest(
 	};
 }
 
+// [tag:antigravity_svg_fallback_requires_raster_preview] The Antigravity fallback prompt
+// prefers SVG because a text-first model can reliably emit a self-contained vector image with
+// readable lettering. Pi's inline terminal previews, however, are much more reliable with raster
+// attachments. Keep the original SVG as the source artifact, but rasterize it to PNG for the tool
+// attachment preview when local tooling is available.
 // [tag:antigravity_vertex_image_fallback] Antigravity's internal image route no longer
 // accepts Google's current public image model IDs for this account/project, but the same
 // OAuth token can still be used for Vertex AI when enabled. When Vertex is unavailable,
@@ -117,6 +138,7 @@ export function buildAntigravityFallbackPrompt(
 		prompt,
 		`Target aspect ratio: ${aspectRatio}.`,
 		"Respond with exactly one Markdown image whose URL is a data:image/ URI.",
+		// [ref:antigravity_svg_fallback_requires_raster_preview]
 		"Prefer SVG when possible so the image stays self-contained and text remains readable.",
 		"Do not return JSON, code fences, or explanation.",
 	].join("\n\n");
@@ -146,6 +168,58 @@ export function extractImageDataUri(
 	return undefined;
 }
 
+function isSvgMimeType(mimeType: string): boolean {
+	return mimeType.toLowerCase().includes("svg");
+}
+
+function stripDataImageMarkdown(text: string): string {
+	return text
+		.replace(/!\[[^\]]*\]\(\s*data:image\/[^)]+\)/gi, " ")
+		.replace(/data:image\/[^,\s)]+(?:;base64)?,[^\s)"']+/gi, " ")
+		.replace(/\(\s*\)/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+export function sanitizeModelNotes(textParts: string[]): string[] {
+	return textParts.map(stripDataImageMarkdown).filter(Boolean);
+}
+
+export async function prepareToolResultImage(
+	image: ImagePayload,
+	rasterizeSvgToPng?: (
+		image: ImagePayload,
+	) => Promise<ImagePayload | undefined>,
+): Promise<PreparedToolResultImage> {
+	if (!isSvgMimeType(image.mimeType)) {
+		return {
+			savedImage: image,
+			attachmentImage: image,
+			previewMode: "native",
+			originalMimeType: undefined,
+		};
+	}
+
+	if (rasterizeSvgToPng) {
+		const rasterized = await rasterizeSvgToPng(image);
+		if (rasterized) {
+			return {
+				savedImage: image,
+				attachmentImage: rasterized,
+				previewMode: "rasterized-svg",
+				originalMimeType: image.mimeType,
+			};
+		}
+	}
+
+	return {
+		savedImage: image,
+		attachmentImage: image,
+		previewMode: "raw-svg",
+		originalMimeType: image.mimeType,
+	};
+}
+
 export function buildGeneratedImageSummary(
 	params: GeneratedImageSummaryParams,
 ): string {
@@ -156,13 +230,21 @@ export function buildGeneratedImageSummary(
 	if (params.source === "data-uri") {
 		summaryParts.push("Decoded image from Antigravity text output fallback.");
 	}
+	if (params.previewMode === "rasterized-svg") {
+		summaryParts.push("Rasterized SVG fallback to PNG for terminal preview.");
+	} else if (params.previewMode === "raw-svg") {
+		summaryParts.push(
+			"Returned SVG fallback directly; some terminals may not display SVG previews.",
+		);
+	}
 	if (params.savedPath) {
 		summaryParts.push(`Saved image to: ${params.savedPath}`);
 	} else if (params.saveError) {
 		summaryParts.push(`Failed to save image: ${params.saveError}`);
 	}
-	if (params.textParts.length > 0) {
-		summaryParts.push(`Model notes: ${params.textParts.join(" ")}`);
+	const modelNotes = sanitizeModelNotes(params.textParts);
+	if (modelNotes.length > 0) {
+		summaryParts.push(`Model notes: ${modelNotes.join(" ")}`);
 	}
 	return summaryParts.join(" ");
 }

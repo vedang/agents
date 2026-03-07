@@ -11,6 +11,8 @@ import {
 	buildVertexImageRequest,
 	extractImageDataUri,
 	imageExtension,
+	prepareToolResultImage,
+	sanitizeModelNotes,
 } from "../core";
 
 test("buildModelAttempts prioritizes current Google image models before antigravity fallback", () => {
@@ -111,25 +113,91 @@ test("extractImageDataUri parses url-encoded data URIs", () => {
 	});
 });
 
+test("sanitizeModelNotes removes raw data URI markdown while keeping human-readable notes", () => {
+	const notes = sanitizeModelNotes([
+		"Here you go!",
+		"![Tiny Red Square](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)",
+		"Readable lettering was preserved.",
+	]);
+
+	assert.deepEqual(notes, [
+		"Here you go!",
+		"Readable lettering was preserved.",
+	]);
+});
+
+test("prepareToolResultImage keeps svg for saving but rasterizes terminal preview when a converter is available", async () => {
+	const prepared = await prepareToolResultImage(
+		{
+			mimeType: "image/svg+xml",
+			data: "PHN2Zz48L3N2Zz4=",
+		},
+		async () => ({
+			mimeType: "image/png",
+			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+		}),
+	);
+
+	assert.deepEqual(prepared, {
+		savedImage: {
+			mimeType: "image/svg+xml",
+			data: "PHN2Zz48L3N2Zz4=",
+		},
+		attachmentImage: {
+			mimeType: "image/png",
+			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+		},
+		previewMode: "rasterized-svg",
+		originalMimeType: "image/svg+xml",
+	});
+});
+
+test("prepareToolResultImage leaves raster images untouched", async () => {
+	const prepared = await prepareToolResultImage({
+		mimeType: "image/png",
+		data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+	});
+
+	assert.deepEqual(prepared, {
+		savedImage: {
+			mimeType: "image/png",
+			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+		},
+		attachmentImage: {
+			mimeType: "image/png",
+			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+		},
+		previewMode: "native",
+		originalMimeType: undefined,
+	});
+});
+
 test("imageExtension preserves svg files when svg mime types are returned", () => {
 	assert.equal(imageExtension("image/svg+xml"), "svg");
 	assert.equal(imageExtension("image/png"), "png");
 });
 
-test("buildGeneratedImageSummary includes fallback, save path, and model notes", () => {
+test("buildGeneratedImageSummary includes fallback, preview normalization, save path, and sanitized model notes", () => {
 	const summary = buildGeneratedImageSummary({
 		providerLabel: "google-antigravity",
 		model: "gemini-3.1-pro-high",
 		aspectRatio: "1:1",
 		source: "data-uri",
 		savedPath: "/repo/.pi/generated-images/fox.svg",
-		textParts: ["A fox logo was generated."],
+		textParts: [
+			"Here you go!",
+			"![Tiny Red Square](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)",
+			"A fox logo was generated.",
+		],
+		previewMode: "rasterized-svg",
+		originalMimeType: "image/svg+xml",
 	});
 
 	assert.equal(
 		summary,
-		"Generated image via google-antigravity/gemini-3.1-pro-high. Aspect ratio: 1:1. Decoded image from Antigravity text output fallback. Saved image to: /repo/.pi/generated-images/fox.svg Model notes: A fox logo was generated.",
+		"Generated image via google-antigravity/gemini-3.1-pro-high. Aspect ratio: 1:1. Decoded image from Antigravity text output fallback. Rasterized SVG fallback to PNG for terminal preview. Saved image to: /repo/.pi/generated-images/fox.svg Model notes: Here you go! A fox logo was generated.",
 	);
+	assert.doesNotMatch(summary, /data:image\//);
 });
 
 test("buildGeneratedImageSummary omits optional sections when they are unavailable", () => {
@@ -140,6 +208,7 @@ test("buildGeneratedImageSummary omits optional sections when they are unavailab
 		source: "inline-data",
 		saveError: "disk full",
 		textParts: [],
+		previewMode: "native",
 	});
 
 	assert.equal(
