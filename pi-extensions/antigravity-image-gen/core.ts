@@ -244,79 +244,80 @@ export async function prepareToolResultImage(
 	};
 }
 
+function buildProjectSaveConfig(cwd: string): SaveConfig {
+	return {
+		mode: "project",
+		outputDir: cwd,
+	};
+}
+
 export function resolveSaveConfig(
 	params: SaveConfigParams,
 	cwd: string,
 	overrides: SaveConfigOverrides = {},
 ): SaveConfig {
-	const envMode = (overrides.envMode || "").toLowerCase();
-	const mode = (params.save ||
-		envMode ||
+	const requestedMode = (params.save ||
+		(overrides.envMode || "").toLowerCase() ||
 		overrides.config?.save ||
 		DEFAULT_SAVE_MODE) as SaveMode;
+	const mode = SAVE_MODES.includes(requestedMode)
+		? requestedMode
+		: DEFAULT_SAVE_MODE;
 
-	if (!SAVE_MODES.includes(mode)) {
-		return {
-			mode: DEFAULT_SAVE_MODE,
-			outputDir: DEFAULT_SAVE_MODE === "project" ? cwd : undefined,
-		};
-	}
-
-	if (mode === "project") {
-		return { mode, outputDir: cwd };
-	}
-
-	if (mode === "global") {
-		return {
-			mode,
-			outputDir: join(
-				overrides.homeDir || homedir(),
-				".pi",
-				"agent",
-				"generated-images",
-			),
-		};
-	}
-
-	if (mode === "custom") {
-		const dir =
-			params.saveDir || overrides.envSaveDir || overrides.config?.saveDir;
-		if (!dir || !dir.trim()) {
-			throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
+	switch (mode) {
+		case "project":
+			return buildProjectSaveConfig(cwd);
+		case "global":
+			return {
+				mode,
+				outputDir: join(
+					overrides.homeDir || homedir(),
+					".pi",
+					"agent",
+					"generated-images",
+				),
+			};
+		case "custom": {
+			const dir =
+				params.saveDir || overrides.envSaveDir || overrides.config?.saveDir;
+			if (!dir || !dir.trim()) {
+				throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
+			}
+			return { mode, outputDir: dir };
 		}
-		return { mode, outputDir: dir };
+		case "none":
+			return { mode };
 	}
-
-	return { mode };
-}
-
-type SaveArtifact = {
-	role: "source" | "preview";
-	image: ImagePayload;
-};
-
-// [ref:antigravity_svg_fallback_requires_raster_preview] When SVG fallback output is
-// rasterized for terminal preview, persist both the original source SVG and the preview PNG
-// so callers keep an editable source artifact alongside a widely compatible bitmap copy.
-function buildSaveArtifacts(
-	preparedImage: PreparedToolResultImage,
-): SaveArtifact[] {
-	const artifacts: SaveArtifact[] = [
-		{ role: "source", image: preparedImage.savedImage },
-	];
-	if (
-		preparedImage.savedImage.mimeType !==
-			preparedImage.attachmentImage.mimeType ||
-		preparedImage.savedImage.data !== preparedImage.attachmentImage.data
-	) {
-		artifacts.push({ role: "preview", image: preparedImage.attachmentImage });
-	}
-	return artifacts;
 }
 
 function buildGeneratedImageBaseName(): string {
 	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 	return `image-${timestamp}-${randomUUID().slice(0, 8)}`;
+}
+
+function imagesMatch(left: ImagePayload, right: ImagePayload): boolean {
+	return left.mimeType === right.mimeType && left.data === right.data;
+}
+
+function buildArtifactPath(
+	outputDir: string,
+	baseName: string,
+	image: ImagePayload,
+	suffix?: "source" | "preview",
+): string {
+	const ext = imageExtension(image.mimeType);
+	const filename = suffix
+		? `${baseName}-${suffix}.${ext}`
+		: `${baseName}.${ext}`;
+	return join(outputDir, filename);
+}
+
+async function writeImageArtifact(
+	filePath: string,
+	image: ImagePayload,
+): Promise<string> {
+	await writeFile(filePath, Buffer.from(image.data, "base64"));
+	return filePath;
 }
 
 export async function saveGeneratedArtifacts(
@@ -325,27 +326,36 @@ export async function saveGeneratedArtifacts(
 	baseName = buildGeneratedImageBaseName(),
 ): Promise<string[]> {
 	await mkdir(outputDir, { recursive: true });
-	const artifacts = buildSaveArtifacts(preparedImage);
-	const extensionCounts = new Map<string, number>();
 
-	for (const artifact of artifacts) {
-		const ext = imageExtension(artifact.image.mimeType);
-		extensionCounts.set(ext, (extensionCounts.get(ext) || 0) + 1);
+	const { savedImage, attachmentImage } = preparedImage;
+	if (imagesMatch(savedImage, attachmentImage)) {
+		const filePath = buildArtifactPath(outputDir, baseName, savedImage);
+		return [await writeImageArtifact(filePath, savedImage)];
 	}
 
-	const savedPaths: string[] = [];
-	for (const artifact of artifacts) {
-		const ext = imageExtension(artifact.image.mimeType);
-		const needsRoleSuffix = (extensionCounts.get(ext) || 0) > 1;
-		const filename = needsRoleSuffix
-			? `${baseName}-${artifact.role}.${ext}`
-			: `${baseName}.${ext}`;
-		const filePath = join(outputDir, filename);
-		await writeFile(filePath, Buffer.from(artifact.image.data, "base64"));
-		savedPaths.push(filePath);
-	}
+	// [ref:antigravity_svg_fallback_requires_raster_preview] When SVG fallback output is
+	// rasterized for terminal preview, persist both the original source SVG and the preview PNG
+	// so callers keep an editable source artifact alongside a widely compatible bitmap copy.
+	const needsRoleSuffix =
+		imageExtension(savedImage.mimeType) ===
+		imageExtension(attachmentImage.mimeType);
+	const sourcePath = buildArtifactPath(
+		outputDir,
+		baseName,
+		savedImage,
+		needsRoleSuffix ? "source" : undefined,
+	);
+	const previewPath = buildArtifactPath(
+		outputDir,
+		baseName,
+		attachmentImage,
+		needsRoleSuffix ? "preview" : undefined,
+	);
 
-	return savedPaths;
+	return [
+		await writeImageArtifact(sourcePath, savedImage),
+		await writeImageArtifact(previewPath, attachmentImage),
+	];
 }
 
 export function buildGeneratedImageSummary(
