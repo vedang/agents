@@ -12,7 +12,7 @@ import learnStuffTwo, {
 	mergeLessonsIntoAgentsContent,
 	resolveNearestAgentsPathForModifiedFile,
 	selectMostAppropriateAgentsPathForModifiedFiles,
-} from "../learn-stuff-2";
+} from "../index";
 
 function assertDefined<T>(value: T | undefined, message: string): T {
 	assert.ok(value, message);
@@ -104,7 +104,7 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 		"learn-stuff:add-lesson command should be registered",
 	);
 
-	const tempDir = mkdtempSync(join(tmpdir(), "learn-stuff-2-"));
+	const tempDir = mkdtempSync(join(tmpdir(), "learn-stuff-"));
 	const agentsPath = join(tempDir, "AGENTS.md");
 
 	try {
@@ -292,7 +292,7 @@ test("selectMostAppropriateAgentsPathForModifiedFiles deprioritizes .agents path
 		[
 			"/repo/.agents/plans/20260213T000000--task__inprogress.md",
 			"/repo/.agents/plans/20260213T000000--task__progress.md",
-			"/repo/pi-extensions/learn-stuff-2.ts",
+			"/repo/pi-extensions/learn-stuff/index.ts",
 		],
 		root,
 		(path) => existingAgents.has(path),

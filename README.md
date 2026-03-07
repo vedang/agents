@@ -40,7 +40,7 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 | `│  ├─ confirm-destructive.ts`      | Confirms destructive clear/switch/fork actions.                    |
 | `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.             |
 | `│  ├─ handoff.ts`                  | Builds focused handoff prompts for new sessions.                   |
-| `│  ├─ learn-stuff-2.ts`            | Adds mandatory lessons-block output style with persistence hooks.  |
+| `│  ├─ learn-stuff/`               | Adds mandatory lessons-block output style with persistence hooks.  |
 | `│  ├─ loop.ts`                     | Repeats follow-up turns until breakout conditions are met.         |
 | `│  ├─ mac-system-theme.ts`         | Syncs Pi theme with macOS light/dark mode.                         |
 | `│  ├─ notify.ts`                   | Sends terminal-native notifications when the agent is done.        |
