@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -12,7 +15,9 @@ import {
 	extractImageDataUri,
 	imageExtension,
 	prepareToolResultImage,
+	resolveSaveConfig,
 	sanitizeModelNotes,
+	saveGeneratedArtifacts,
 } from "../core";
 
 test("buildModelAttempts prioritizes current Google image models before antigravity fallback", () => {
@@ -175,13 +180,109 @@ test("imageExtension preserves svg files when svg mime types are returned", () =
 	assert.equal(imageExtension("image/png"), "png");
 });
 
-test("buildGeneratedImageSummary includes fallback, preview normalization, save path, and sanitized model notes", () => {
+test("resolveSaveConfig saves to the current working directory by default", () => {
+	const resolved = resolveSaveConfig(
+		{ prompt: "A fox reading a book." },
+		"/repo",
+	);
+
+	assert.deepEqual(resolved, {
+		mode: "project",
+		outputDir: "/repo",
+	});
+});
+
+test("resolveSaveConfig falls back invalid modes to the default cwd save behavior", () => {
+	const resolved = resolveSaveConfig({ save: "invalid" as never }, "/repo");
+
+	assert.deepEqual(resolved, {
+		mode: "project",
+		outputDir: "/repo",
+	});
+});
+
+test("saveGeneratedArtifacts writes svg source and png preview files with a shared basename", async () => {
+	const outputDir = await mkdtemp(join(tmpdir(), "pi-antigravity-image-save-"));
+
+	try {
+		const svgData = Buffer.from(
+			"<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+			"utf-8",
+		).toString("base64");
+		const pngData = Buffer.from("png-preview-bytes", "utf-8").toString(
+			"base64",
+		);
+		const savedPaths = await saveGeneratedArtifacts(
+			{
+				savedImage: {
+					mimeType: "image/svg+xml",
+					data: svgData,
+				},
+				attachmentImage: {
+					mimeType: "image/png",
+					data: pngData,
+				},
+				previewMode: "rasterized-svg",
+			},
+			outputDir,
+			"fox-reading",
+		);
+
+		assert.deepEqual(savedPaths, [
+			join(outputDir, "fox-reading.svg"),
+			join(outputDir, "fox-reading.png"),
+		]);
+		assert.equal(
+			await readFile(join(outputDir, "fox-reading.svg"), "utf-8"),
+			"<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+		);
+		assert.equal(
+			(await readFile(join(outputDir, "fox-reading.png"))).toString("utf-8"),
+			"png-preview-bytes",
+		);
+	} finally {
+		await rm(outputDir, { recursive: true, force: true });
+	}
+});
+
+test("saveGeneratedArtifacts avoids duplicate writes when source and preview are the same image", async () => {
+	const outputDir = await mkdtemp(join(tmpdir(), "pi-antigravity-image-save-"));
+
+	try {
+		const pngData = Buffer.from("native-png", "utf-8").toString("base64");
+		const savedPaths = await saveGeneratedArtifacts(
+			{
+				savedImage: {
+					mimeType: "image/png",
+					data: pngData,
+				},
+				attachmentImage: {
+					mimeType: "image/png",
+					data: pngData,
+				},
+				previewMode: "native",
+			},
+			outputDir,
+			"fox-reading",
+		);
+
+		assert.deepEqual(savedPaths, [join(outputDir, "fox-reading.png")]);
+		assert.equal(
+			(await readFile(join(outputDir, "fox-reading.png"))).toString("utf-8"),
+			"native-png",
+		);
+	} finally {
+		await rm(outputDir, { recursive: true, force: true });
+	}
+});
+
+test("buildGeneratedImageSummary includes fallback, preview normalization, save paths, and sanitized model notes", () => {
 	const summary = buildGeneratedImageSummary({
 		providerLabel: "google-antigravity",
 		model: "gemini-3.1-pro-high",
 		aspectRatio: "1:1",
 		source: "data-uri",
-		savedPath: "/repo/.pi/generated-images/fox.svg",
+		savedPaths: ["/repo/fox.svg", "/repo/fox.png"],
 		textParts: [
 			"Here you go!",
 			"![Tiny Red Square](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)",
@@ -192,7 +293,7 @@ test("buildGeneratedImageSummary includes fallback, preview normalization, save 
 
 	assert.equal(
 		summary,
-		"Generated image via google-antigravity/gemini-3.1-pro-high. Aspect ratio: 1:1. Decoded image from Antigravity text output fallback. Rasterized SVG fallback to PNG for terminal preview. Saved image to: /repo/.pi/generated-images/fox.svg Model notes: Here you go! A fox logo was generated.",
+		"Generated image via google-antigravity/gemini-3.1-pro-high. Aspect ratio: 1:1. Decoded image from Antigravity text output fallback. Rasterized SVG fallback to PNG for terminal preview. Saved images to: /repo/fox.svg, /repo/fox.png Model notes: Here you go! A fox logo was generated.",
 	);
 	assert.doesNotMatch(summary, /data:image\//);
 });

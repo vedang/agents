@@ -14,13 +14,13 @@
  * Requires OAuth login via /login for google-antigravity.
  *
  * Save modes (tool param, env var, or config file):
- *   save=none     - Don't save to disk (default)
- *   save=project  - Save to <repo>/.pi/generated-images/
+ *   save=project  - Save to the current working directory (default)
+ *   save=none     - Don't save to disk
  *   save=global   - Save to ~/.pi/agent/generated-images/
  *   save=custom   - Save to saveDir param or PI_IMAGE_SAVE_DIR
  *
  * Environment variables:
- *   PI_IMAGE_SAVE_MODE  - Default save mode (none|project|global|custom)
+ *   PI_IMAGE_SAVE_MODE  - Default save mode (project|none|global|custom)
  *   PI_IMAGE_SAVE_DIR   - Directory for custom save mode
  *
  * Config files (project overrides global):
@@ -30,9 +30,8 @@
  */
 
 import { execFile as execFileCallback } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
@@ -46,9 +45,12 @@ import {
 	buildModelAttempts,
 	buildVertexImageRequest,
 	extractImageDataUri,
-	imageExtension,
 	prepareToolResultImage,
+	resolveSaveConfig,
+	SAVE_MODES,
+	saveGeneratedArtifacts,
 	type ImagePayload,
+	type SaveMode,
 } from "./core";
 
 const PROVIDER = "google-antigravity";
@@ -70,10 +72,6 @@ const ASPECT_RATIOS = [
 type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
 const DEFAULT_ASPECT_RATIO: AspectRatio = "1:1";
-const DEFAULT_SAVE_MODE = "none";
-
-const SAVE_MODES = ["none", "project", "global", "custom"] as const;
-type SaveMode = (typeof SAVE_MODES)[number];
 
 const ANTIGRAVITY_ENDPOINT =
 	"https://daily-cloudcode-pa.sandbox.googleapis.com";
@@ -163,11 +161,6 @@ interface ExtensionConfig {
 	saveDir?: string;
 }
 
-interface SaveConfig {
-	mode: SaveMode;
-	outputDir?: string;
-}
-
 interface ParsedImageResult {
 	image: ImagePayload;
 	text: string[];
@@ -212,56 +205,6 @@ function loadConfig(cwd: string): ExtensionConfig {
 		join(cwd, ".pi", "extensions", "antigravity-image-gen.json"),
 	);
 	return { ...globalConfig, ...projectConfig };
-}
-
-function resolveSaveConfig(params: ToolParams, cwd: string): SaveConfig {
-	const config = loadConfig(cwd);
-	const envMode = (process.env.PI_IMAGE_SAVE_MODE || "").toLowerCase();
-	const paramMode = params.save;
-	const mode = (paramMode ||
-		envMode ||
-		config.save ||
-		DEFAULT_SAVE_MODE) as SaveMode;
-
-	if (!SAVE_MODES.includes(mode)) {
-		return { mode: DEFAULT_SAVE_MODE as SaveMode };
-	}
-
-	if (mode === "project") {
-		return { mode, outputDir: join(cwd, ".pi", "generated-images") };
-	}
-
-	if (mode === "global") {
-		return {
-			mode,
-			outputDir: join(homedir(), ".pi", "agent", "generated-images"),
-		};
-	}
-
-	if (mode === "custom") {
-		const dir =
-			params.saveDir || process.env.PI_IMAGE_SAVE_DIR || config.saveDir;
-		if (!dir || !dir.trim()) {
-			throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
-		}
-		return { mode, outputDir: dir };
-	}
-
-	return { mode };
-}
-
-async function saveImage(
-	base64Data: string,
-	mimeType: string,
-	outputDir: string,
-): Promise<string> {
-	await mkdir(outputDir, { recursive: true });
-	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-	const ext = imageExtension(mimeType);
-	const filename = `image-${timestamp}-${randomUUID().slice(0, 8)}.${ext}`;
-	const filePath = join(outputDir, filename);
-	await writeFile(filePath, Buffer.from(base64Data, "base64"));
-	return filePath;
 }
 
 interface SvgRasterizer {
@@ -530,11 +473,17 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 		name: "generate_image",
 		label: "Generate image",
 		description:
-			"Generate an image via Google's current image models using Antigravity OAuth. Tries Vertex AI image models first and falls back to Antigravity-compatible output when needed. Optional saving via save=project|global|custom|none.",
+			"Generate an image via Google's current image models using Antigravity OAuth. Saves files to the current working directory by default, and falls back to Antigravity-compatible output when needed. Optional override via save=project|global|custom|none.",
 		parameters: TOOL_PARAMS,
 		async execute(_toolCallId, params: ToolParams, signal, onUpdate, ctx) {
 			const { accessToken, projectId } = await getCredentials(ctx);
 			const aspectRatio = params.aspectRatio || DEFAULT_ASPECT_RATIO;
+			const saveConfig = resolveSaveConfig(params, ctx.cwd, {
+				config: loadConfig(ctx.cwd),
+				envMode: process.env.PI_IMAGE_SAVE_MODE,
+				envSaveDir: process.env.PI_IMAGE_SAVE_DIR,
+				homeDir: homedir(),
+			});
 			const attempts = buildModelAttempts(params.model);
 			const errors: string[] = [];
 			let skipRemainingVertexAttempts = false;
@@ -607,14 +556,12 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 						preparedImage.previewMode === "native"
 							? undefined
 							: parsed.image.mimeType;
-					const saveConfig = resolveSaveConfig(params, ctx.cwd);
-					let savedPath: string | undefined;
+					let savedPaths: string[] | undefined;
 					let saveError: string | undefined;
 					if (saveConfig.mode !== "none" && saveConfig.outputDir) {
 						try {
-							savedPath = await saveImage(
-								preparedImage.savedImage.data,
-								preparedImage.savedImage.mimeType,
+							savedPaths = await saveGeneratedArtifacts(
+								preparedImage,
 								saveConfig.outputDir,
 							);
 						} catch (error) {
@@ -632,7 +579,7 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 									model: attempt.model,
 									aspectRatio,
 									source: parsed.source,
-									savedPath,
+									savedPaths,
 									saveError,
 									textParts: parsed.text,
 									previewMode: preparedImage.previewMode,
@@ -648,7 +595,8 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 							provider: providerLabel,
 							model: attempt.model,
 							aspectRatio,
-							savedPath,
+							savedPath: savedPaths?.[0],
+							savedPaths,
 							saveMode: saveConfig.mode,
 							transport: attempt.transport,
 							source: parsed.source,

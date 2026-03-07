@@ -1,3 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 export const CURRENT_GOOGLE_IMAGE_MODELS = [
 	"gemini-3.1-flash-image-preview",
 	"gemini-3-pro-image-preview",
@@ -40,6 +45,30 @@ export type ExtractedImageDataUri = {
 
 export type ToolImagePreviewMode = "native" | "rasterized-svg" | "raw-svg";
 
+export const SAVE_MODES = ["none", "project", "global", "custom"] as const;
+export type SaveMode = (typeof SAVE_MODES)[number];
+export const DEFAULT_SAVE_MODE: SaveMode = "project";
+
+export type SaveConfigParams = {
+	save?: SaveMode;
+	saveDir?: string;
+};
+
+export type SaveConfigOverrides = {
+	config?: {
+		save?: SaveMode;
+		saveDir?: string;
+	};
+	envMode?: string;
+	envSaveDir?: string;
+	homeDir?: string;
+};
+
+export type SaveConfig = {
+	mode: SaveMode;
+	outputDir?: string;
+};
+
 export type PreparedToolResultImage = {
 	savedImage: ImagePayload;
 	attachmentImage: ImagePayload;
@@ -51,7 +80,7 @@ export type GeneratedImageSummaryParams = {
 	model: string;
 	aspectRatio: string;
 	source: "inline-data" | "data-uri";
-	savedPath?: string;
+	savedPaths?: string[];
 	saveError?: string;
 	textParts: string[];
 	previewMode?: ToolImagePreviewMode;
@@ -215,6 +244,110 @@ export async function prepareToolResultImage(
 	};
 }
 
+export function resolveSaveConfig(
+	params: SaveConfigParams,
+	cwd: string,
+	overrides: SaveConfigOverrides = {},
+): SaveConfig {
+	const envMode = (overrides.envMode || "").toLowerCase();
+	const mode = (params.save ||
+		envMode ||
+		overrides.config?.save ||
+		DEFAULT_SAVE_MODE) as SaveMode;
+
+	if (!SAVE_MODES.includes(mode)) {
+		return {
+			mode: DEFAULT_SAVE_MODE,
+			outputDir: DEFAULT_SAVE_MODE === "project" ? cwd : undefined,
+		};
+	}
+
+	if (mode === "project") {
+		return { mode, outputDir: cwd };
+	}
+
+	if (mode === "global") {
+		return {
+			mode,
+			outputDir: join(
+				overrides.homeDir || homedir(),
+				".pi",
+				"agent",
+				"generated-images",
+			),
+		};
+	}
+
+	if (mode === "custom") {
+		const dir =
+			params.saveDir || overrides.envSaveDir || overrides.config?.saveDir;
+		if (!dir || !dir.trim()) {
+			throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
+		}
+		return { mode, outputDir: dir };
+	}
+
+	return { mode };
+}
+
+type SaveArtifact = {
+	role: "source" | "preview";
+	image: ImagePayload;
+};
+
+// [ref:antigravity_svg_fallback_requires_raster_preview] When SVG fallback output is
+// rasterized for terminal preview, persist both the original source SVG and the preview PNG
+// so callers keep an editable source artifact alongside a widely compatible bitmap copy.
+function buildSaveArtifacts(
+	preparedImage: PreparedToolResultImage,
+): SaveArtifact[] {
+	const artifacts: SaveArtifact[] = [
+		{ role: "source", image: preparedImage.savedImage },
+	];
+	if (
+		preparedImage.savedImage.mimeType !==
+			preparedImage.attachmentImage.mimeType ||
+		preparedImage.savedImage.data !== preparedImage.attachmentImage.data
+	) {
+		artifacts.push({ role: "preview", image: preparedImage.attachmentImage });
+	}
+	return artifacts;
+}
+
+function buildGeneratedImageBaseName(): string {
+	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+	return `image-${timestamp}-${randomUUID().slice(0, 8)}`;
+}
+
+export async function saveGeneratedArtifacts(
+	preparedImage: PreparedToolResultImage,
+	outputDir: string,
+	baseName = buildGeneratedImageBaseName(),
+): Promise<string[]> {
+	await mkdir(outputDir, { recursive: true });
+	const artifacts = buildSaveArtifacts(preparedImage);
+	const extensionCounts = new Map<string, number>();
+
+	for (const artifact of artifacts) {
+		const ext = imageExtension(artifact.image.mimeType);
+		extensionCounts.set(ext, (extensionCounts.get(ext) || 0) + 1);
+	}
+
+	const savedPaths: string[] = [];
+	for (const artifact of artifacts) {
+		const ext = imageExtension(artifact.image.mimeType);
+		const needsRoleSuffix = (extensionCounts.get(ext) || 0) > 1;
+		const filename = needsRoleSuffix
+			? `${baseName}-${artifact.role}.${ext}`
+			: `${baseName}.${ext}`;
+		const filePath = join(outputDir, filename);
+		await writeFile(filePath, Buffer.from(artifact.image.data, "base64"));
+		savedPaths.push(filePath);
+	}
+
+	return savedPaths;
+}
+
 export function buildGeneratedImageSummary(
 	params: GeneratedImageSummaryParams,
 ): string {
@@ -232,8 +365,10 @@ export function buildGeneratedImageSummary(
 			"Returned SVG fallback directly; some terminals may not display SVG previews.",
 		);
 	}
-	if (params.savedPath) {
-		summaryParts.push(`Saved image to: ${params.savedPath}`);
+	if (params.savedPaths && params.savedPaths.length > 0) {
+		const prefix =
+			params.savedPaths.length === 1 ? "Saved image to:" : "Saved images to:";
+		summaryParts.push(`${prefix} ${params.savedPaths.join(", ")}`);
 	} else if (params.saveError) {
 		summaryParts.push(`Failed to save image: ${params.saveError}`);
 	}
