@@ -44,7 +44,6 @@ export type PreparedToolResultImage = {
 	savedImage: ImagePayload;
 	attachmentImage: ImagePayload;
 	previewMode: ToolImagePreviewMode;
-	originalMimeType?: string;
 };
 
 export type GeneratedImageSummaryParams = {
@@ -56,7 +55,6 @@ export type GeneratedImageSummaryParams = {
 	saveError?: string;
 	textParts: string[];
 	previewMode?: ToolImagePreviewMode;
-	originalMimeType?: string;
 };
 
 export function isCurrentGoogleImageModel(model: string): boolean {
@@ -196,7 +194,6 @@ export async function prepareToolResultImage(
 			savedImage: image,
 			attachmentImage: image,
 			previewMode: "native",
-			originalMimeType: undefined,
 		};
 	}
 
@@ -207,7 +204,6 @@ export async function prepareToolResultImage(
 				savedImage: image,
 				attachmentImage: rasterized,
 				previewMode: "rasterized-svg",
-				originalMimeType: image.mimeType,
 			};
 		}
 	}
@@ -216,7 +212,6 @@ export async function prepareToolResultImage(
 		savedImage: image,
 		attachmentImage: image,
 		previewMode: "raw-svg",
-		originalMimeType: image.mimeType,
 	};
 }
 

@@ -148,7 +148,6 @@ test("prepareToolResultImage keeps svg for saving but rasterizes terminal previe
 			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
 		},
 		previewMode: "rasterized-svg",
-		originalMimeType: "image/svg+xml",
 	});
 });
 
@@ -168,7 +167,6 @@ test("prepareToolResultImage leaves raster images untouched", async () => {
 			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
 		},
 		previewMode: "native",
-		originalMimeType: undefined,
 	});
 });
 
@@ -190,7 +188,6 @@ test("buildGeneratedImageSummary includes fallback, preview normalization, save 
 			"A fox logo was generated.",
 		],
 		previewMode: "rasterized-svg",
-		originalMimeType: "image/svg+xml",
 	});
 
 	assert.equal(

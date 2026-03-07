@@ -34,7 +34,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -310,7 +310,7 @@ const SVG_RASTERIZERS: SvgRasterizer[] = [
 			inputPath,
 		],
 		resolveOutputPath: (inputPath, _outputPath, workDir) =>
-			join(workDir, `${inputPath.split("/").pop()}.png`),
+			join(workDir, `${basename(inputPath)}.png`),
 	},
 ];
 
@@ -603,6 +603,10 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 						// [ref:antigravity_svg_fallback_requires_raster_preview]
 						rasterizeSvgToPng,
 					);
+					const originalMimeType =
+						preparedImage.previewMode === "native"
+							? undefined
+							: parsed.image.mimeType;
 					const saveConfig = resolveSaveConfig(params, ctx.cwd);
 					let savedPath: string | undefined;
 					let saveError: string | undefined;
@@ -632,7 +636,6 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 									saveError,
 									textParts: parsed.text,
 									previewMode: preparedImage.previewMode,
-									originalMimeType: preparedImage.originalMimeType,
 								}),
 							},
 							{
@@ -651,7 +654,7 @@ export default function antigravityImageGen(pi: ExtensionAPI) {
 							source: parsed.source,
 							previewMode: preparedImage.previewMode,
 							attachmentMimeType: preparedImage.attachmentImage.mimeType,
-							originalMimeType: preparedImage.originalMimeType,
+							originalMimeType,
 							savedMimeType: preparedImage.savedImage.mimeType,
 						},
 					};
