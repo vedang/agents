@@ -27,8 +27,8 @@
     "npm:pi-subagents",
     "npm:pi-interactive-shell",
     "npm:pi-web-access",
-    "git:github.com/nicobailon/visual-explainer",
-    "git:github.com/nicobailon/pi-boomerang",
+    "git:github.com/vedang/visual-explainer",
+    "git:github.com/vedang/pi-boomerang",
     "git:github.com/Whamp/pi-read-map"
   ]
 }
