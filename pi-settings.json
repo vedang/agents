@@ -1,8 +1,8 @@
 {
   "lastChangelogVersion": "0.56.2",
-  "defaultProvider": "zai-custom",
-  "defaultModel": "glm-5",
-  "defaultThinkingLevel": "high",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.4",
+  "defaultThinkingLevel": "xhigh",
   "enabledModels": [
     "openai-codex/gpt-5.3-codex",
     "openai-codex/gpt-5.3-codex-spark",
@@ -24,7 +24,7 @@
   "steeringMode": "all",
   "followUpMode": "one-at-a-time",
   "hideThinkingBlock": false,
-  "theme": "dark",
+  "theme": "light",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-subagents",
