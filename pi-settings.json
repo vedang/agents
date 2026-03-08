@@ -1,20 +1,17 @@
 {
-  "lastChangelogVersion": "0.56.2",
+  "lastChangelogVersion": "0.57.1",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.4",
   "defaultThinkingLevel": "xhigh",
   "enabledModels": [
+    "openai-codex/gpt-5.4",
     "openai-codex/gpt-5.3-codex",
     "openai-codex/gpt-5.3-codex-spark",
     "zai-custom/zai-glm-4.7",
-    "zai-custom/glm-4.7",
     "zai-custom/glm-5",
-    "google-antigravity/gemini-3-flash",
-    "google-antigravity/claude-opus-4-5-thinking",
     "google-antigravity/claude-opus-4-6-thinking",
-    "google-antigravity/claude-sonnet-4-5",
-    "google-antigravity/claude-sonnet-4-5-thinking",
-    "openai-codex/gpt-5.4"
+    "google-antigravity/gemini-3.1-pro-high",
+    "google-antigravity/claude-sonnet-4-6"
   ],
   "compaction": {
     "enabled": true,
