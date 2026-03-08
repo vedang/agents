@@ -4,34 +4,45 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import learnStuffTwo, {
-	LEARN_STUFF_2_ADDITIONAL_CONTEXT,
-	applyLearnStuffTwo,
+import learnStuff, {
+	LEARN_STUFF_ADDITIONAL_CONTEXT,
+	applyLearnStuff,
 	extractLessonsFromAssistantOutput,
 	extractLessonsSectionsFromAgentsContent,
+	extractPersistableLessons,
 	mergeLessonsIntoAgentsContent,
 	resolveNearestAgentsPathForModifiedFile,
 	selectMostAppropriateAgentsPathForModifiedFiles,
-} from "../index";
+} from "../index.ts";
 
 function assertDefined<T>(value: T | undefined, message: string): T {
 	assert.ok(value, message);
 	return value;
 }
 
-test("applyLearnStuffTwo appends lessons guidance", () => {
+function buildAssistantOutputWithLessons(...lessons: string[]): string {
+	return [
+		"Done.",
+		"",
+		"`★ Lessons ─────────────────────────────────────`",
+		...lessons.map((lesson) => `- ${lesson}`),
+		"`─────────────────────────────────────────────────`",
+	].join("\n");
+}
+
+test("applyLearnStuff appends lessons guidance", () => {
 	const basePrompt = "You are a coding assistant.";
-	const prompt = applyLearnStuffTwo(basePrompt);
+	const prompt = applyLearnStuff(basePrompt);
 
 	assert.ok(prompt.startsWith(basePrompt));
-	assert.ok(prompt.includes("You are in 'learn-stuff-2' mode"));
-	assert.ok(prompt.includes("★ Lessons ─────────────────────────────────────")); // [ref:learn_stuff_2_lessons_block_format]
-	assert.ok(prompt.endsWith(LEARN_STUFF_2_ADDITIONAL_CONTEXT));
+	assert.ok(prompt.includes("You are in 'learn-stuff' mode"));
+	assert.ok(prompt.includes("★ Lessons ─────────────────────────────────────")); // [ref:learn_stuff_lessons_block_format]
+	assert.ok(prompt.endsWith(LEARN_STUFF_ADDITIONAL_CONTEXT));
 });
 
-test("applyLearnStuffTwo is idempotent when context already exists", () => {
-	const basePrompt = `Base\n\n${LEARN_STUFF_2_ADDITIONAL_CONTEXT}`;
-	const prompt = applyLearnStuffTwo(basePrompt);
+test("applyLearnStuff is idempotent when context already exists", () => {
+	const basePrompt = `Base\n\n${LEARN_STUFF_ADDITIONAL_CONTEXT}`;
+	const prompt = applyLearnStuff(basePrompt);
 
 	assert.equal(prompt, basePrompt);
 });
@@ -61,7 +72,7 @@ test("extension registers before_agent_start and injects context", async () => {
 		},
 	};
 
-	learnStuffTwo(pi as never);
+	learnStuff(pi as never);
 	const handler = assertDefined(
 		beforeAgentStart,
 		"before_agent_start handler should be registered",
@@ -71,7 +82,7 @@ test("extension registers before_agent_start and injects context", async () => {
 		await handler({ systemPrompt: "BASE" }),
 		"before_agent_start handler should return updated system prompt",
 	);
-	assert.ok(result.systemPrompt.includes("You are in 'learn-stuff-2' mode"));
+	assert.ok(result.systemPrompt.includes("You are in 'learn-stuff' mode"));
 	assert.equal(commands.has("learn-stuff:show-lessons"), true);
 	assert.equal(commands.has("learn-stuff:add-lesson"), true);
 	assert.equal(commands.has("show-lessons"), false);
@@ -98,7 +109,7 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 		},
 	};
 
-	learnStuffTwo(pi as never);
+	learnStuff(pi as never);
 	const command = assertDefined(
 		commands.get("learn-stuff:add-lesson"),
 		"learn-stuff:add-lesson command should be registered",
@@ -145,19 +156,37 @@ test("learn-stuff:add-lesson writes to cwd AGENTS.md with dedupe", async () => {
 });
 
 test("extractLessonsFromAssistantOutput parses lessons bullets from block", () => {
-	const assistantOutput = [
-		"Done.",
-		"",
-		"`★ Lessons ─────────────────────────────────────`",
-		"- Keep lessons scoped to changed module.",
-		"- Prefer deterministic parsers over regex-only hacks.",
-		"`─────────────────────────────────────────────────`",
-	].join("\n");
+	const assistantOutput = buildAssistantOutputWithLessons(
+		"Keep lessons scoped to changed module.",
+		"Prefer deterministic parsers over regex-only hacks.",
+	);
 
 	assert.deepEqual(extractLessonsFromAssistantOutput(assistantOutput), [
 		"Keep lessons scoped to changed module.",
 		"Prefer deterministic parsers over regex-only hacks.",
 	]);
+});
+
+test("extractPersistableLessons extracts only ⭐ marked lessons", () => {
+	const assistantOutput = buildAssistantOutputWithLessons(
+		"⭐ This is a reusable pattern.",
+		"This is ephemeral debugging context.",
+		"⭐ Another persistable lesson.",
+	);
+
+	assert.deepEqual(extractPersistableLessons(assistantOutput), [
+		"This is a reusable pattern.",
+		"Another persistable lesson.",
+	]);
+});
+
+test("extractPersistableLessons returns empty array when no ⭐ markers", () => {
+	const assistantOutput = buildAssistantOutputWithLessons(
+		"Debugging note only.",
+		"Another ephemeral observation.",
+	);
+
+	assert.deepEqual(extractPersistableLessons(assistantOutput), []);
 });
 
 test("mergeLessonsIntoAgentsContent appends only new lessons", () => {
@@ -301,7 +330,7 @@ test("selectMostAppropriateAgentsPathForModifiedFiles deprioritizes .agents path
 	assert.equal(selected, "/repo/pi-extensions/AGENTS.md");
 });
 
-test("selectMostAppropriateAgentsPathForModifiedFiles allows .agents target when only .agents paths changed", () => {
+test("selectMostAppropriateAgentsPathForModifiedFiles returns null when only .agents/plans paths changed", () => {
 	const root = "/repo";
 	const existingAgents = new Set(["/repo/.agents/plans/AGENTS.md"]);
 
@@ -314,7 +343,23 @@ test("selectMostAppropriateAgentsPathForModifiedFiles allows .agents target when
 		(path) => existingAgents.has(path),
 	);
 
-	assert.equal(selected, "/repo/.agents/plans/AGENTS.md");
+	assert.equal(selected, null);
+});
+
+test("selectMostAppropriateAgentsPathForModifiedFiles returns null when only .agents/explainers paths changed", () => {
+	const root = "/repo";
+	const existingAgents = new Set(["/repo/.agents/explainers/AGENTS.md"]);
+
+	const selected = selectMostAppropriateAgentsPathForModifiedFiles(
+		[
+			"/repo/.agents/explainers/architecture.html",
+			"/repo/.agents/explainers/notes.md",
+		],
+		root,
+		(path) => existingAgents.has(path),
+	);
+
+	assert.equal(selected, null);
 });
 
 test("selectMostAppropriateAgentsPathForModifiedFiles keeps local-create fallback", () => {

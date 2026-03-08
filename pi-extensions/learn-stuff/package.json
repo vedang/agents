@@ -1,0 +1,8 @@
+{
+  "name": "learn-stuff",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lessons-oriented output style with selective persistence for pi.",
+  "type": "module",
+  "main": "index.ts"
+}

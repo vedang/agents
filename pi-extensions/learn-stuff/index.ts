@@ -1,7 +1,7 @@
 /**
- * Learn-Stuff-2 Extension
+ * Learn-Stuff Extension
  *
- * Lessons-oriented output style with automatic persistence.
+ * Lessons-oriented output style with selective persistence.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -19,17 +19,18 @@ import type {
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 
-const LEARN_STUFF_2_MODE_SENTINEL = "You are in 'learn-stuff-2' mode";
+const LEARN_STUFF_MODE_SENTINEL = "You are in 'learn-stuff' mode";
 const SHOW_LESSONS_COMMAND = "learn-stuff:show-lessons";
 const ADD_LESSON_COMMAND = "learn-stuff:add-lesson";
 const LESSONS_BLOCK_LABEL = "★ Lessons";
 const LESSONS_BLOCK_DIVIDER =
 	"─────────────────────────────────────────────────";
-const SHOW_LESSONS_MESSAGE_TYPE = "learn-stuff-2-show-lessons";
+const SHOW_LESSONS_MESSAGE_TYPE = "learn-stuff-show-lessons";
 const SHOW_LESSONS_MAX_CHARS = 12_000;
 const LESSONS_FUZZY_JACCARD_THRESHOLD = 0.86;
 const LESSONS_MIN_FUZZY_TOKENS = 4;
 const LESSONS_MIN_FUZZY_INTERSECTION = 3;
+const PERSIST_MARKER = "⭐";
 const SKIPPED_DIRECTORIES = new Set([
 	".git",
 	".jj",
@@ -41,6 +42,7 @@ const SKIPPED_DIRECTORIES = new Set([
 	".next",
 	".nuxt",
 ]);
+const LESSON_TARGET_EXCLUDED_CHILD_DIRS = new Set(["plans", "explainers"]);
 const LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS = new Set([".agents"]);
 const LESSON_STOPWORDS = new Set([
 	"a",
@@ -97,14 +99,16 @@ type LessonsTargetScore = {
 	depth: number;
 };
 
-export const LEARN_STUFF_2_ADDITIONAL_CONTEXT = `${LEARN_STUFF_2_MODE_SENTINEL}, where you should include a concise lessons block alongside your normal response.
+export const LEARN_STUFF_ADDITIONAL_CONTEXT = `${LEARN_STUFF_MODE_SENTINEL}, where you should include a concise lessons block alongside your normal response.
 
 After each response, include this block format (with backticks):
 "\`★ Lessons ─────────────────────────────────────\`
 - [2-3 concise lessons learned from this step]
 \`─────────────────────────────────────────────────\`"
 
-Keep the lessons specific to the code change or debugging step. The extension runtime persists lessons separately, so do not include persistence chatter in the response.`; // [tag:learn_stuff_2_lessons_block_format]
+Keep the lessons specific to the code change or debugging step. The extension runtime persists lessons separately, so do not include persistence chatter in the response.
+
+To persist a lesson to disk, prefix it with ⭐: \`- ⭐ This is a reusable pattern.\``; // [tag:learn_stuff_lessons_block_format]
 
 function normalizeWhitespace(value: string): string {
 	return value.replace(/\s+/g, " ").trim();
@@ -121,6 +125,14 @@ function normalizeLesson(lesson: string): string {
 	return normalizeWhitespace(
 		stripWrappingBackticks(lesson).replace(/^[-*]\s+/, ""),
 	);
+}
+
+function stripPersistMarker(lesson: string): string | null {
+	if (!lesson.startsWith(PERSIST_MARKER)) return null;
+
+	const stripped = lesson.slice(PERSIST_MARKER.length).replace(/^[\s:]*/, "");
+	const normalized = stripped.trim();
+	return normalized.length > 0 ? normalized : null;
 }
 
 function stemLessonToken(token: string): string {
@@ -292,6 +304,17 @@ export function extractLessonsFromAssistantOutput(output: string): string[] {
 	return dedupeLessons(rawLessons);
 }
 
+/**
+ * Extract only lessons marked with ⭐ for disk persistence.
+ * Strips the marker and returns clean lesson text.
+ */
+export function extractPersistableLessons(output: string): string[] {
+	return extractLessonsFromAssistantOutput(output).flatMap((lesson) => {
+		const persistable = stripPersistMarker(lesson);
+		return persistable ? [persistable] : [];
+	});
+}
+
 function normalizeHeadingText(heading: string): string {
 	return heading
 		.toLowerCase()
@@ -309,31 +332,35 @@ function parseHeading(line: string): { level: number; text: string } | null {
 	};
 }
 
-function findFirstLessonsSectionBounds(
+function findSectionEndIndex(
 	lines: string[],
-): { headingIndex: number; sectionEnd: number } | null {
-	let headingIndex = -1;
-	let headingLevel = 0;
-
-	for (let index = 0; index < lines.length; index++) {
+	startIndex: number,
+	headingLevel: number,
+): number {
+	for (let index = startIndex + 1; index < lines.length; index++) {
 		const heading = parseHeading(lines[index]);
-		if (!heading) continue;
-
-		if (headingIndex < 0) {
-			if (heading.text.startsWith("lessons")) {
-				headingIndex = index;
-				headingLevel = heading.level;
-			}
-			continue;
-		}
-
-		if (heading.level <= headingLevel) {
-			return { headingIndex, sectionEnd: index };
+		if (heading && heading.level <= headingLevel) {
+			return index;
 		}
 	}
 
-	if (headingIndex < 0) return null;
-	return { headingIndex, sectionEnd: lines.length };
+	return lines.length;
+}
+
+function findFirstLessonsSectionBounds(
+	lines: string[],
+): { headingIndex: number; sectionEnd: number } | null {
+	for (let index = 0; index < lines.length; index++) {
+		const heading = parseHeading(lines[index]);
+		if (!heading || !heading.text.startsWith("lessons")) continue;
+
+		return {
+			headingIndex: index,
+			sectionEnd: findSectionEndIndex(lines, index, heading.level),
+		};
+	}
+
+	return null;
 }
 
 export function extractLessonsSectionsFromAgentsContent(
@@ -350,15 +377,7 @@ export function extractLessonsSectionsFromAgentsContent(
 			continue;
 		}
 
-		let sectionEnd = lines.length;
-		for (let cursor = index + 1; cursor < lines.length; cursor++) {
-			const maybeHeading = parseHeading(lines[cursor]);
-			if (!maybeHeading) continue;
-			if (maybeHeading.level <= heading.level) {
-				sectionEnd = cursor;
-				break;
-			}
-		}
+		const sectionEnd = findSectionEndIndex(lines, index, heading.level);
 
 		const body = lines
 			.slice(index + 1, sectionEnd)
@@ -500,14 +519,15 @@ export function resolveNearestAgentsPathForModifiedFile(
 	return join(fileDirectory, "AGENTS.md");
 }
 
-function getTopLevelDirectoryWithinRoot(
+function getRelativeSegmentsWithinRoot(
 	pathValue: string,
 	projectRoot: string,
-): string | null {
+): string[] | null {
 	const rel = relative(projectRoot, pathValue);
 	if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
-	const [topLevel] = rel.split(/[\\/]/).filter((segment) => segment.length > 0);
-	return topLevel ?? null;
+
+	const segments = rel.split(/[\\/]/).filter((segment) => segment.length > 0);
+	return segments.length > 0 ? segments : null;
 }
 
 function countSegments(pathValue: string): number {
@@ -531,9 +551,19 @@ function isDeprioritizedForLessonsTarget(
 	pathValue: string,
 	projectRoot: string,
 ): boolean {
-	const topLevel = getTopLevelDirectoryWithinRoot(pathValue, projectRoot);
-	if (!topLevel) return false;
-	return LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS.has(topLevel);
+	const topLevel = getRelativeSegmentsWithinRoot(pathValue, projectRoot)?.[0];
+	return topLevel
+		? LESSON_TARGET_DEPRIORITIZED_TOP_LEVEL_DIRS.has(topLevel)
+		: false;
+}
+
+function isExcludedForLessonsTarget(
+	pathValue: string,
+	projectRoot: string,
+): boolean {
+	const segments = getRelativeSegmentsWithinRoot(pathValue, projectRoot);
+	if (!segments || segments[0] !== ".agents") return false;
+	return LESSON_TARGET_EXCLUDED_CHILD_DIRS.has(segments[1] ?? "");
 }
 
 function compareLessonsTargetScore(
@@ -556,7 +586,8 @@ export function selectMostAppropriateAgentsPathForModifiedFiles(
 	const root = resolve(projectRoot);
 	const pathsInsideRoot = [...modifiedPaths]
 		.map((pathValue) => resolve(pathValue))
-		.filter((pathValue) => isPathInsideRoot(pathValue, root));
+		.filter((pathValue) => isPathInsideRoot(pathValue, root))
+		.filter((pathValue) => !isExcludedForLessonsTarget(pathValue, root));
 	if (pathsInsideRoot.length === 0) return null;
 
 	const preferredPaths = pathsInsideRoot.filter(
@@ -596,7 +627,7 @@ export function selectMostAppropriateAgentsPathForModifiedFiles(
 		}
 	}
 
-	return best?.target ?? null; // [tag:learn_stuff_2_single_target_persistence]
+	return best?.target ?? null; // [tag:learn_stuff_single_target_persistence]
 }
 
 function findProjectRoot(startDir: string): string {
@@ -712,20 +743,20 @@ async function persistLessonsForTarget(
 	return merged.addedCount;
 }
 
-export function applyLearnStuffTwo(systemPrompt: string): string {
-	if (systemPrompt.includes(LEARN_STUFF_2_MODE_SENTINEL)) {
-		return systemPrompt; // [ref:learn_stuff_2_lessons_block_format]
+export function applyLearnStuff(systemPrompt: string): string {
+	if (systemPrompt.includes(LEARN_STUFF_MODE_SENTINEL)) {
+		return systemPrompt; // [ref:learn_stuff_lessons_block_format]
 	}
 
 	const basePrompt = systemPrompt.trimEnd();
 	if (basePrompt.length === 0) {
-		return LEARN_STUFF_2_ADDITIONAL_CONTEXT;
+		return LEARN_STUFF_ADDITIONAL_CONTEXT;
 	}
 
-	return `${basePrompt}\n\n${LEARN_STUFF_2_ADDITIONAL_CONTEXT}`;
+	return `${basePrompt}\n\n${LEARN_STUFF_ADDITIONAL_CONTEXT}`;
 }
 
-export default function learnStuffTwo(pi: ExtensionAPI) {
+export default function learnStuff(pi: ExtensionAPI) {
 	const pendingModifiedPaths = new Set<string>();
 	let persistenceQueue: Promise<void> = Promise.resolve();
 
@@ -733,14 +764,14 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 		persistenceQueue = persistenceQueue
 			.then(() => persistLessonsForTarget(target, lessons))
 			.catch((error) => {
-				console.error("learn-stuff-2: failed to persist lessons", error);
+				console.error("learn-stuff: failed to persist lessons", error);
 			});
 	}
 
 	pi.on("before_agent_start", async (event) => {
 		pendingModifiedPaths.clear();
 		return {
-			systemPrompt: applyLearnStuffTwo(event.systemPrompt),
+			systemPrompt: applyLearnStuff(event.systemPrompt),
 		};
 	});
 
@@ -773,7 +804,7 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 		);
 		if (!output) return;
 
-		const lessons = extractLessonsFromAssistantOutput(output);
+		const lessons = extractPersistableLessons(output);
 		if (lessons.length === 0) return;
 
 		const projectRoot = findProjectRoot(ctx.cwd);
@@ -782,7 +813,7 @@ export default function learnStuffTwo(pi: ExtensionAPI) {
 			projectRoot,
 		);
 		if (!target) return;
-		queuePersistence(target, lessons); // [ref:learn_stuff_2_single_target_persistence]
+		queuePersistence(target, lessons); // [ref:learn_stuff_single_target_persistence]
 	});
 
 	pi.registerCommand(SHOW_LESSONS_COMMAND, {
