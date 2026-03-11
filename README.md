@@ -8,6 +8,7 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 2. `mkdir -p ~/.pi/agent`
 3. `ln -s ~/.config/agents/AGENTS.md ~/.pi/agent/AGENTS.md`
 4. `ln -s ~/.config/agents/APPEND_SYSTEM.md ~/.pi/agent/APPEND_SYSTEM.md`
+5. `ln -s ~/.config/agents/pi-settings.json ~/.pi/agent/settings.json`
 5. `ln -s ~/.config/agents/agents ~/.pi/agent/agents`
 6. `ln -s ~/.config/agents/prompts ~/.pi/agent/prompts`
 7. `ln -s ~/.config/agents/pi-extensions ~/.pi/agent/extensions`
@@ -26,12 +27,11 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 | `│  ├─ worker.md`                   | Executes scoped coding tasks with full tool access.                |
 | `│  ├─ reviewer.md`                 | Reviews code for quality, bugs, and security issues.               |
 | `│  ├─ plan-reviewer.md`            | Critiques plans for missing steps and risk.                        |
-| `│  ├─ librarian.md`                | Pulls external docs and best-practice guidance.                    |
+| `│  ├─ researcher.md`               | Searches, evaluates, and synthesizes a focused research brief.     |
 | `│  ├─ multimodal.md`               | Analyzes PDFs/images/media for implementation details.             |
 | `├─ prompts/`                       | Reusable prompt templates for common workflows.                    |
 | `│  ├─ scout-and-plan.md`           | Scouts code, drafts a plan, then reviews the plan.                 |
 | `│  ├─ implement-plan.md`           | Executes plans task-by-task via chained subagents.                 |
-| `│  ├─ explain-codebase.md`         | Delegates interactive codebase explainer generation to playground. |
 | `├─ pi-extensions/`                 | Runtime extensions that add commands/tools/UI behaviors.           |
 | `│  ├─ confirm-destructive.ts`      | Confirms destructive clear/switch/fork actions.                    |
 | `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.             |
