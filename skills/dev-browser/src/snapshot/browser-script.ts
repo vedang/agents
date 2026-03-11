@@ -9,8 +9,8 @@
  * window.__devBrowser_selectSnapshotRef().
  */
 
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // Cache the bundled script
 let cachedScript: string | null = null;

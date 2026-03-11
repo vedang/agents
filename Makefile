@@ -1,43 +1,97 @@
-SHELL := /bin/bash
-.SHELLFLAGS := -Eeuo pipefail -c
+SHELL = /bin/bash -Eeu -o pipefail
+
+BIOME_SCOPE ?= pi-extensions package.json tsconfig.json biome.json knip.json vitest.config.unit.ts vitest.config.integration.ts vitest.config.llm.ts
+JSCPD_SCOPE ?= pi-extensions
+TEST_CONFIG_UNIT ?= vitest.config.unit.ts
+TEST_CONFIG_INTEGRATION ?= vitest.config.integration.ts
+TEST_CONFIG_LLM ?= vitest.config.llm.ts
 
 .DEFAULT_GOAL := help
 
-TS_SCOPE ?= pi-extensions
-TS_FILES := $(shell find $(TS_SCOPE) -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.mts" -o -name "*.cts" \) -not -path "*/node_modules/*")
-TEST_FILES := $(shell find $(TS_SCOPE) -type f -path "*/__tests__/*.test.ts" -not -path "*/node_modules/*")
-
 .PHONY: help
-help: ## Show available targets
-	@awk '/^[a-zA-Z0-9_-]+:.*##/ { printf "%-18s # %s\n", substr($$1, 1, length($$1)-1), substr($$0, index($$0, "##") + 3) }' $(MAKEFILE_LIST)
+help:    ## A brief listing of all available commands
+	@awk '/^[a-zA-Z0-9_-]+:.*##/ { printf "%-25s # %s\n", substr($$1, 1, length($$1)-1), substr($$0, index($$0,"##")+3) }' $(MAKEFILE_LIST)
 
-.PHONY: install
-install: ## Install dependencies
-	bun install
+.PHONY: doctor
+doctor: ## Verify toolchain prerequisites
+	@for cmd in bun node make; do \
+		command -v $$cmd >/dev/null 2>&1 || { echo "$$cmd is required"; exit 1; }; \
+	done
+	@echo "TypeScript/pi-package scaffold ready."
 
 .PHONY: ci
-ci: ## Install dependencies in CI mode
+ci:
 	bun install --frozen-lockfile
 
+.PHONY: init
+init:  ## Bootstrap dependencies and setup
+	bun install
+
+.PHONY: upgrade-deps
+upgrade-deps:    ## Upgrade all dependencies to their latest versions
+	bun update
+
+.PHONY: check-tagref
+check-tagref:
+	@if command -v tagref >/dev/null 2>&1; then \
+		tagref; \
+	else \
+		echo "tagref not installed; skipping tagref validation"; \
+	fi
+
 .PHONY: check-biome
-check-biome: ## Lint TypeScript with Biome
-	@if [ -n "$(strip $(TS_FILES))" ]; then bunx --yes @biomejs/biome lint --reporter=summary --files-ignore-unknown=true $(TS_FILES); else echo "No TypeScript files found under $(TS_SCOPE); skipping Biome lint"; fi
+check-biome:
+	bunx @biomejs/biome check $(BIOME_SCOPE)
 
 .PHONY: check-typescript
-check-typescript: ## Type-check TypeScript sources
-	@if [ -f tsconfig.json ]; then bunx --yes tsc --noEmit -p tsconfig.json; else echo "No tsconfig.json found; skipping TypeScript check"; fi
+check-typescript:
+	bunx tsc --noEmit
+
+.PHONY: check-knip
+check-knip:
+	bunx knip
+
+.PHONY: check-jscpd
+check-jscpd:
+	bunx jscpd $(JSCPD_SCOPE)
 
 .PHONY: check
-check: check-biome check-typescript ## Run lint and type checks
+check: check-biome check-typescript check-tagref check-knip check-jscpd    ## Run static analysis and project health checks
 	@echo "All checks passed!"
 
 .PHONY: format
-format: ## Format TypeScript with Biome
-	@if [ -n "$(strip $(TS_FILES))" ]; then bunx --yes @biomejs/biome format --write --files-ignore-unknown=true $(TS_FILES); else echo "No TypeScript files found under $(TS_SCOPE); skipping Biome format"; fi
+format:    ## Format project files with Biome
+	bunx @biomejs/biome check --write $(BIOME_SCOPE)
+
+.PHONY: test-unit
+test-unit:
+	bunx vitest run --config $(TEST_CONFIG_UNIT)
+
+.PHONY: test-llm
+test-llm:
+	bunx vitest run --config $(TEST_CONFIG_LLM)
+
+.PHONY: test-integration
+test-integration:
+	bunx vitest run --config $(TEST_CONFIG_INTEGRATION)
 
 .PHONY: test
-test: ## Run repository tests
-	@if [ -n "$(strip $(TEST_FILES))" ]; then bunx --yes tsx --test $(TEST_FILES); else echo "No tests found under $(TS_SCOPE); skipping tests"; fi
+test: test-unit    ## Run the default test suite
+
+.PHONY: dev
+dev:    ## Run the local development watch loop
+	bun run dev
+
+.PHONY: build
+build: check    ## Build the TypeScript package
+	bun run build
+
+.PHONY: clean
+clean:     ## Delete generated artifacts
+	rm -rf node_modules/
+	rm -rf dist/
+	rm -rf coverage/
+	rm -f *.tsbuildinfo
 
 .git/hooks/pre-push:
 	@echo "Setting up Git hooks..."

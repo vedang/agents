@@ -69,3 +69,9 @@ For every task:
 ## Tagref Workflow
 
 Use `[tag:name]` and `[ref:name]` for non-obvious constraints that must stay in sync across the codebase, such as security rules, accessibility requirements, intentional workarounds, or other cross-cutting invariants. Use lowercase names with underscores.
+
+## Lessons
+
+- Keep dependency declarations in sync with actual usage - knip catches drift over time
+- System tools referenced in scripts (like `make`) should be ignored by knip to avoid false positives
+- Dev dependencies are for tools only used during development/testing, not runtime

@@ -1,8 +1,9 @@
-.agents/plans/
-bad-experiments/
-playgrounds/
-skills/dev-browser/profiles/
-skills/dev-browser/tmp/
+.agents/
 node_modules/
 dist/
 coverage/
+.DS_Store
+*.tsbuildinfo
+skills/dev-browser/profiles/
+skills/dev-browser/tmp/skills/dev-browser/profiles/
+skills/dev-browser/tmp/
