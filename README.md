@@ -33,24 +33,26 @@ This is my Agent Harness configuration. Tell your agent to clone it to `~/.confi
 | `│  ├─ implement-plan.md`           | Executes plans task-by-task via chained subagents.                 |
 | `│  ├─ explain-codebase.md`         | Delegates interactive codebase explainer generation to playground. |
 | `├─ pi-extensions/`                 | Runtime extensions that add commands/tools/UI behaviors.           |
-| `│  ├─ quizme/`                     | Quizzes understanding of session changes and grades answers.       |
-| `│  ├─ simplify-code/`              | Refines changed code while preserving behavior.                    |
-| `│  ├─ antigravity-image-gen.ts`    | Adds image generation via Antigravity models.                      |
 | `│  ├─ confirm-destructive.ts`      | Confirms destructive clear/switch/fork actions.                    |
 | `│  ├─ explanatory-output-style.ts` | Ports Claude explanatory style into pi system prompts.             |
 | `│  ├─ handoff.ts`                  | Builds focused handoff prompts for new sessions.                   |
-| `│  ├─ learn-stuff/`               | Adds mandatory lessons-block output style with persistence hooks.  |
 | `│  ├─ mac-system-theme.ts`         | Syncs Pi theme with macOS light/dark mode.                         |
 | `│  ├─ notify.ts`                   | Sends terminal-native notifications when the agent is done.        |
 | `│  ├─ status-line.ts`              | Shows persistent footer status updates across turns.               |
 | `├─ pi-packages/`                   | External packages loaded via pi-settings.json.                     |
+| `│  ├─ pi-antigravity-image-gen`    | Adds image generation via Google Antigravity + Vertex fallbacks.   |
 | `│  ├─ pi-askuserquestion`          | Interactive question prompts via `ask_user_question` tool.         |
-| `│  ├─ pi-subagents`                | Scout, planner, worker, reviewer subagent definitions.             |
+| `│  ├─ pi-boomerang`                | Token-efficient context collapsing for large tasks.                |
+| `│  ├─ pi-custom-provider-zai`      | Registers Cerebras/ZAI-hosted GLM models as a custom provider.     |
 | `│  ├─ pi-interactive-shell`        | Run interactive CLI agents in overlay TUI.                         |
+| `│  ├─ pi-learn-stuff`              | Adds mandatory lessons-block output style with persistence hooks.  |
+| `│  ├─ pi-prompt-history`           | Ctrl-R style prompt-history search across pi sessions.             |
+| `│  ├─ pi-quizme`                   | Quizzes understanding of session changes and grades answers.       |
+| `│  ├─ pi-read-map`                 | Enhanced file reading with structure maps for large files.         |
+| `│  ├─ pi-simplify-code`            | Refines changed code while preserving behavior.                    |
+| `│  ├─ pi-subagents`                | Scout, planner, worker, reviewer subagent definitions.             |
 | `│  ├─ pi-web-access`               | Web search, fetch content, librarian research skill.               |
 | `│  ├─ visual-explainer`            | Generate HTML pages to visually explain systems/data.              |
-| `│  ├─ pi-boomerang`                | Token-efficient context collapsing for large tasks.                |
-| `│  ├─ pi-read-map`                 | Enhanced file reading with structure maps for large files.         |
 | `├─ skills/`                        | Optional skill packages for specialized capabilities.              |
 | `│  ├─ dev-browser/`                | Persistent browser automation workflows and helpers.               |
 | `│  ├─ docx/`                       | Creates, edits, and analyzes Word `.docx` documents.               |
