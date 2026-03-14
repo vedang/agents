@@ -36,6 +36,7 @@
     "git:github.com/vedang/pi-simplify-code",
     "git:github.com/vedang/visual-explainer",
     "git:github.com/Whamp/pi-read-map",
-    "npm:glimpseui"
+    "npm:glimpseui",
+    "git:github.com/Michaelliv/pi-generative-ui"
   ]
 }
