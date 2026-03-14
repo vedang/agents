@@ -35,6 +35,7 @@
     "git:github.com/vedang/pi-quizme",
     "git:github.com/vedang/pi-simplify-code",
     "git:github.com/vedang/visual-explainer",
-    "git:github.com/Whamp/pi-read-map"
+    "git:github.com/Whamp/pi-read-map",
+    "npm:glimpseui"
   ]
 }
