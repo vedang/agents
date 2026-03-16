@@ -26,7 +26,6 @@
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-subagents",
     "npm:pi-interactive-shell",
-    "npm:pi-web-access",
     "git:github.com/vedang/pi-boomerang",
     "git:github.com/vedang/pi-custom-provider-zai",
     "git:github.com/vedang/pi-learn-stuff",
@@ -35,6 +34,7 @@
     "git:github.com/vedang/pi-simplify-code",
     "git:github.com/Whamp/pi-read-map",
     "npm:glimpseui",
-    "git:github.com/Michaelliv/pi-generative-ui"
+    "git:github.com/Michaelliv/pi-generative-ui",
+    "git:github.com/pasky/chrome-cdp-skill"
   ]
 }
