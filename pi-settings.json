@@ -32,9 +32,8 @@
     "git:github.com/vedang/pi-prompt-history",
     "git:github.com/vedang/pi-quizme",
     "git:github.com/vedang/pi-simplify-code",
+    "git:github.com/vedang/visual-explainer",
     "git:github.com/Whamp/pi-read-map",
-    "npm:glimpseui",
-    "git:github.com/Michaelliv/pi-generative-ui",
     "git:github.com/pasky/chrome-cdp-skill"
   ]
 }
