@@ -24,7 +24,6 @@
   "theme": "dark",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
-    "npm:pi-subagents",
     "npm:pi-interactive-shell",
     "git:github.com/vedang/pi-boomerang",
     "git:github.com/vedang/pi-custom-provider-zai",
@@ -32,6 +31,7 @@
     "git:github.com/vedang/pi-prompt-history",
     "git:github.com/vedang/pi-quizme",
     "git:github.com/vedang/pi-simplify-code",
+    "git:github.com/vedang/pi-subagents",
     "git:github.com/vedang/visual-explainer",
     "git:github.com/Whamp/pi-read-map",
     "git:github.com/pasky/chrome-cdp-skill"
