@@ -25,23 +25,37 @@ async function isDarkMode(): Promise<boolean> {
 export default function (pi: ExtensionAPI) {
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
-  pi.on("session_start", async (_event, ctx) => {
-    let currentTheme = (await isDarkMode()) ? "dark" : "light";
-    ctx.ui.setTheme(currentTheme);
-
-    intervalId = setInterval(async () => {
-      const newTheme = (await isDarkMode()) ? "dark" : "light";
-      if (newTheme !== currentTheme) {
-        currentTheme = newTheme;
-        ctx.ui.setTheme(currentTheme);
-      }
-    }, 2000);
-  });
-
-  pi.on("session_shutdown", () => {
+  function stopThemePolling(): void {
     if (intervalId) {
       clearInterval(intervalId);
       intervalId = null;
     }
+  }
+
+  pi.on("session_start", async (_event, ctx) => {
+    stopThemePolling();
+
+    // Theme polling is only useful in interactive sessions with a UI.
+    // Avoid starting background work in print/json mode.
+    if (!ctx.hasUI) return;
+
+    let currentTheme = "";
+    const syncTheme = async () => {
+      const nextTheme = (await isDarkMode()) ? "dark" : "light";
+      if (nextTheme === currentTheme) return;
+      currentTheme = nextTheme;
+      ctx.ui.setTheme(nextTheme);
+    };
+
+    await syncTheme();
+    intervalId = setInterval(() => {
+      void syncTheme();
+    }, 2000);
+
+    // Defensive fallback: if teardown is ever skipped, do not keep the
+    // process alive solely for theme polling.
+    intervalId.unref?.();
   });
+
+  pi.on("session_shutdown", stopThemePolling);
 }
