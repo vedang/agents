@@ -12,7 +12,7 @@
  * The generated prompt appears as a draft in the editor for review/editing.
  */
 
-import { type Message, complete } from "@mariozechner/pi-ai";
+import { complete, type Message } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import {
   BorderedLoader,
@@ -95,7 +95,11 @@ export default function (pi: ExtensionAPI) {
           loader.onAbort = () => done(null);
 
           const doGenerate = async () => {
-            const apiKey = await ctx.modelRegistry.getApiKey(model);
+            const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+            if (!auth.ok) {
+              throw new Error("Unable to obtain API key for model");
+            }
+            const { apiKey, headers } = auth;
 
             const userMessage: Message = {
               role: "user",
@@ -111,7 +115,7 @@ export default function (pi: ExtensionAPI) {
             const response = await complete(
               model,
               { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-              { apiKey, signal: loader.signal },
+              { apiKey, headers, signal: loader.signal },
             );
 
             if (response.stopReason === "aborted") {
