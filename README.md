@@ -1,6 +1,8 @@
 # .config/agents
 
-This repo holds my Pi Coding Agent configuration. Clone it to `~/.config/agents`, then symlink whichever parts you want into `~/.pi/agent`.
+![Agents Banner](images/banner.png)
+
+This is my Agent Harness configuration. Tell your agent to clone it to `~/.config/agents` and symlink the parts you want into your harness.
 
 ## Example setup
 
