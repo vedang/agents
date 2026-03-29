@@ -69,3 +69,9 @@ For every task:
 ## Tagref Workflow
 
 Use `[tag:name]` and `[ref:name]` for non-obvious constraints that must stay in sync across the codebase, such as security rules, accessibility requirements, intentional workarounds, or other cross-cutting invariants. Use lowercase names with underscores.
+
+## Tool Call Behaviour
+- Before a meaningful tool call, send one concise sentence describing the immediate action.
+- Always do this before edits and verification commands.
+- Skip it for routine reads, obvious follow-up searches, and repetitive low-signal tool calls.
+- When you preface a tool call, make that tool call in the same turn.
