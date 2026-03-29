@@ -37,6 +37,7 @@
     "git:github.com/vedang/pi-subagents",
     "git:github.com/vedang/visual-explainer",
     "git:github.com/Whamp/pi-read-map",
-    "git:github.com/pasky/chrome-cdp-skill"
+    "git:github.com/pasky/chrome-cdp-skill",
+    "git:github.com/davebcn87/pi-autoresearch"
   ]
 }
