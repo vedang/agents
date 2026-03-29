@@ -1,17 +1,18 @@
 {
-  "lastChangelogVersion": "0.65.2",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.4",
+  "lastChangelogVersion": "0.66.1",
+  "defaultProvider": "zai-custom",
+  "defaultModel": "zai-glm-4.7",
   "defaultThinkingLevel": "xhigh",
   "enabledModels": [
     "openai-codex/gpt-5.4",
     "openai-codex/gpt-5.3-codex",
     "openai-codex/gpt-5.3-codex-spark",
     "zai-custom/zai-glm-4.7",
-    "zai-custom/glm-5",
     "google-antigravity/claude-opus-4-6-thinking",
     "google-antigravity/gemini-3.1-pro-high",
-    "google-antigravity/claude-sonnet-4-6"
+    "google-antigravity/claude-sonnet-4-6",
+    "zai-custom/glm-5-turbo",
+    "zai-custom/glm-5.1"
   ],
   "compaction": {
     "enabled": true,
@@ -21,7 +22,7 @@
   "steeringMode": "all",
   "followUpMode": "one-at-a-time",
   "hideThinkingBlock": false,
-  "theme": "light",
+  "theme": "dark",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-interactive-shell",
