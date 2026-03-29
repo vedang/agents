@@ -27,6 +27,7 @@
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-interactive-shell",
     "git:github.com/unravel-team/dafny-estimation",
+    "git:github.com/vedang/caveman",
     "git:github.com/vedang/pi-boomerang",
     "git:github.com/vedang/pi-custom-provider-zai",
     "git:github.com/vedang/pi-prompt-history",
