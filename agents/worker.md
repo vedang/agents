@@ -1,6 +1,6 @@
 ---
 name: worker
-model: openai-codex/gpt-5.3-codex
+model: openai-codex/gpt-5.3-codex-spark
 description: General-purpose implementation subagent with isolated context
 defaultProgress: true
 defaultReads: plan.md
