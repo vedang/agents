@@ -75,3 +75,14 @@ Use `[tag:name]` and `[ref:name]` for non-obvious constraints that must stay in 
 - Always do this before edits and verification commands.
 - Skip it for routine reads, obvious follow-up searches, and repetitive low-signal tool calls.
 - When you preface a tool call, make that tool call in the same turn.
+
+# Instructions specifically for pi-coding-agent
+
+## Use pi-intercom to coordinate with other local pi sessions on related codebases
+Use `/skill:pi-intercom` for patterns.
+
+**When:** Same codebase (parallel work), reference codebase (consulting patterns), related repos (shared libraries).
+
+**Not when:** Unrelated codebases, trivial questions, or when you can proceed independently.
+
+**Principle:** Prefer `send` for notifications; `ask` only when blocked waiting for input.

@@ -1,8 +1,8 @@
 {
-  "lastChangelogVersion": "0.70.2",
-  "defaultProvider": "deepseek",
-  "defaultModel": "deepseek-v4-pro",
-  "defaultThinkingLevel": "high",
+  "lastChangelogVersion": "0.70.5",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.5",
+  "defaultThinkingLevel": "xhigh",
   "enabledModels": [
     "zai-custom/zai-glm-4.7",
     "zai-custom/glm-5-turbo",
@@ -19,10 +19,11 @@
   "steeringMode": "all",
   "followUpMode": "one-at-a-time",
   "hideThinkingBlock": false,
-  "theme": "dark",
+  "theme": "light",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
     "npm:pi-interactive-shell",
+    "npm:pi-intercom",
     "git:github.com/unravel-team/dafny-estimation",
     "git:github.com/vedang/caveman",
     "git:github.com/vedang/pi-boomerang",
