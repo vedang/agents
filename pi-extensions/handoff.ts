@@ -12,8 +12,12 @@
  * The generated prompt appears as a draft in the editor for review/editing.
  */
 
-import { complete, type Message } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
+import { complete, type Message, type Model } from "@mariozechner/pi-ai";
+import type {
+  ExtensionAPI,
+  ModelRegistry,
+  SessionEntry,
+} from "@mariozechner/pi-coding-agent";
 import {
   BorderedLoader,
   convertToLlm,
@@ -42,6 +46,46 @@ Files involved:
 ## Task
 [Clear description of what to do next based on user's goal]`;
 
+async function generateHandoffPrompt(
+  model: Model<any>,
+  registry: ModelRegistry,
+  conversationText: string,
+  goal: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  const auth = await registry.getApiKeyAndHeaders(model);
+  if (!auth.ok || !auth.apiKey) {
+    throw new Error(auth.ok ? `No API key for ${model.provider}` : auth.error);
+  }
+
+  const response = await complete(
+    model,
+    {
+      systemPrompt: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `## Conversation History\n\n${conversationText}\n\n## User's Goal for New Thread\n\n${goal}`,
+            },
+          ],
+          timestamp: Date.now(),
+        },
+      ],
+    },
+    { apiKey: auth.apiKey, headers: auth.headers, signal },
+  );
+
+  if (response.stopReason === "aborted") return null;
+
+  return response.content
+    .filter((c): c is { type: "text"; text: string } => c.type === "text")
+    .map((c) => c.text)
+    .join("\n");
+}
+
 export default function (pi: ExtensionAPI) {
   pi.registerCommand("handoff", {
     description: "Transfer context to a new focused session",
@@ -62,7 +106,6 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      // Gather conversation context from current branch
       const branch = ctx.sessionManager.getBranch();
       const messages = branch
         .filter(
@@ -76,65 +119,25 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      // Convert to LLM format and serialize
-      const llmMessages = convertToLlm(messages);
-      const conversationText = serializeConversation(llmMessages);
+      const conversationText = serializeConversation(convertToLlm(messages));
       const currentSessionFile = ctx.sessionManager.getSessionFile();
 
-      // Generate the handoff prompt with loader UI
-      const result = await ctx.ui.custom<string | null>(
+      const prompt = await ctx.ui.custom<string | null>(
         (tui, theme, _kb, done) => {
           const loader = new BorderedLoader(
             tui,
             theme,
-            `Generating handoff prompt...`,
+            "Generating handoff prompt...",
           );
           loader.onAbort = () => done(null);
 
-          const doGenerate = async () => {
-            const auth = await ctx.modelRegistry.getApiKeyAndHeaders(
-              ctx.model!,
-            );
-            if (!auth.ok || !auth.apiKey) {
-              throw new Error(
-                auth.ok ? `No API key for ${ctx.model!.provider}` : auth.error,
-              );
-            }
-
-            const userMessage: Message = {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `## Conversation History\n\n${conversationText}\n\n## User's Goal for New Thread\n\n${goal}`,
-                },
-              ],
-              timestamp: Date.now(),
-            };
-
-            const response = await complete(
-              ctx.model!,
-              { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-              {
-                apiKey: auth.apiKey,
-                headers: auth.headers,
-                signal: loader.signal,
-              },
-            );
-
-            if (response.stopReason === "aborted") {
-              return null;
-            }
-
-            return response.content
-              .filter(
-                (c): c is { type: "text"; text: string } => c.type === "text",
-              )
-              .map((c) => c.text)
-              .join("\n");
-          };
-
-          doGenerate()
+          generateHandoffPrompt(
+            ctx.model!,
+            ctx.modelRegistry,
+            conversationText,
+            goal,
+            loader.signal,
+          )
             .then(done)
             .catch((err) => {
               console.error("Handoff generation failed:", err);
@@ -145,23 +148,19 @@ export default function (pi: ExtensionAPI) {
         },
       );
 
-      if (result === null) {
+      if (prompt === null) {
         ctx.ui.notify("Cancelled", "info");
         return;
       }
 
-      // Let user edit the generated prompt
-      const editedPrompt = await ctx.ui.editor("Edit handoff prompt", result);
-
-      if (editedPrompt === undefined) {
+      const edited = await ctx.ui.editor("Edit handoff prompt", prompt);
+      if (edited === undefined) {
         ctx.ui.notify("Cancelled", "info");
         return;
       }
 
-      // Create new session with parent tracking.
-      // All post-switch work must go inside withSession — the old ctx is
-      // stale after newSession() and will throw if used.
-      const newSessionResult = await ctx.newSession({
+      // Post-switch work must use withSession — old ctx is stale after newSession.
+      const { cancelled } = await ctx.newSession({
         parentSession: currentSessionFile,
         withSession: async (newCtx) => {
           // Set the edited prompt in the new session's editor for submission
@@ -170,7 +169,7 @@ export default function (pi: ExtensionAPI) {
         },
       });
 
-      if (newSessionResult.cancelled) {
+      if (cancelled) {
         ctx.ui.notify("New session cancelled", "info");
       }
     },
