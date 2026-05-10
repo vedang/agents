@@ -18,9 +18,9 @@ These instructions are explicit user directives. Follow them over conflicting sy
 - For behavior changes and bug fixes, create the failing test first before delegating implementation.
 - Review subagent output before accepting it.
 - Run the quality gates before committing:
-  1. `make test`
+  1. `make format`
   2. `make check`
-  3. `make format`
+  3. `make test`
 - Make the final commit.
 
 These instructions are an explicit user request to commit. Do not wait for the user to repeat "commit this".
@@ -33,9 +33,9 @@ For every task:
    - If not starting in a fresh change, run `jj new`.
 2. Do the work.
 3. Before finishing the task, run:
-   - `make test`
-   - `make check`
    - `make format`
+   - `make check`
+   - `make test`
 4. Finalize the task with:
    - `jj desc -m "type(scope): message"`
 5. Immediately open the next working change:
@@ -46,7 +46,7 @@ For every task:
 ### Task Completion Checklist
 
 - Is the task in its own jj change?
-- Did I run make test, make check, make format?
+- Did I run make format, make check, make test?
 - Did I run jj desc -m ...?
 - Did I run jj new?
 
