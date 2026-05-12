@@ -19,9 +19,10 @@
   "steeringMode": "all",
   "followUpMode": "one-at-a-time",
   "hideThinkingBlock": false,
-  "theme": "light",
+  "theme": "dark",
   "packages": [
     "git:github.com/ghoseb/pi-askuserquestion",
+    "git:github.com/ghoseb/pi-damage-control",
     "npm:pi-interactive-shell",
     "npm:pi-intercom",
     "git:github.com/unravel-team/dafny-estimation",
