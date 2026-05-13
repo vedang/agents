@@ -26,6 +26,7 @@
     "npm:pi-interactive-shell",
     "npm:pi-intercom",
     "git:github.com/unravel-team/dafny-estimation",
+    "git:github.com/unravel-team/unravel-proposal-creator",
     "git:github.com/vedang/caveman",
     "git:github.com/vedang/pi-boomerang",
     "git:github.com/vedang/pi-custom-provider-zai",
